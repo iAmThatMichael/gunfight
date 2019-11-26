@@ -5,6 +5,9 @@
 
 scriptparsetree,scripts/mp/gametypes/gf.gsc
 scriptparsetree,scripts/mp/gametypes/gf.csc
+
+scriptparsetree,scripts/mp/bots/_bot.gsc
+
 rawfile,gamedata/gamesettings/mp/gamesettings_gf.cfg
 
 localize,mod

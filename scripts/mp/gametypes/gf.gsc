@@ -58,6 +58,7 @@ function main()
 	level.onStartGameType = &onStartGameType;
 	// Callbacks
 	callback::on_connect( &onPlayerConnect );
+	callback::on_spawned( &onPlayerSpawned );
 }
 
 function onStartGameType()
@@ -127,14 +128,17 @@ function onPlayerConnect()
 
 function onSpawnPlayer(predictedSpawn)
 {
-	self.usingObj = undefined;
-
-	if ( level.useStartSpawns && !level.inGracePeriod && !level.playerQueuedRespawn )
-	{
-		level.useStartSpawns = false;
-	}
-
 	spawning::onSpawnPlayer(predictedSpawn);
+}
+
+function onPlayerSpawned()
+{
+	self endon( "death" );
+	self endon( "disconnect" );
+
+	// Freeze bots for development
+	if ( self IsTestClient() )
+		self FreezeControlsAllowLook( true );
 }
 
 function loadPlayer()
