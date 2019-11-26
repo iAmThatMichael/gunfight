@@ -1,3 +1,4 @@
+#using scripts\shared\array_shared;
 #using scripts\shared\callbacks_shared;
 #using scripts\shared\gameobjects_shared;
 #using scripts\shared\math_shared;
@@ -12,8 +13,6 @@
 #using scripts\mp\gametypes\_globallogic_ui;
 #using scripts\mp\gametypes\_spawning;
 #using scripts\mp\gametypes\_spawnlogic;
-#using scripts\mp\killstreaks\_killstreaks;
-#using scripts\mp\gametypes\_dogtags;
 
 #using scripts\mp\_util;
 
@@ -38,10 +37,13 @@ function main()
 	level.overrideTeamScore = true;
 	//
 	//level.giveCustomLoadout = &giveCustomLoadout;
-	level.onPlayerDamage = &onPlayerDamage;
-	level.onPlayerKilled =&onPlayerKilled;
 	//
-	level.onRoundSwitch =&onRoundSwitch;
+	level.onDeadEvent =&onDeadEvent;
+	//
+	level.onPlayerDamage = &onPlayerDamage;
+	level.onPlayerKilled = &onPlayerKilled;
+	//
+	level.onRoundSwitch = &onRoundSwitch;
 	//
 	level.onSpawnPlayer = &onSpawnPlayer;
 	//
@@ -187,6 +189,10 @@ function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath,
 
 function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration )
 {
+	///if ( getPlayersInTeam( self.pers["team"], false ).size == 0 )
+	//{
+	//	gf_endGame( attacker, game["strings"][game["defenders"]+"_eliminated"] );
+	//}
 }
 
 function onRoundSwitch()
@@ -208,5 +214,80 @@ function onRoundSwitch()
 	{
 		level.halftimeType = "halftime";
 		game["switchedsides"] = !game["switchedsides"];
+	}
+}
+
+function getBetterTeam()
+{
+	kills["allies"] = 0;
+	kills["axis"] = 0;
+	deaths["allies"] = 0;
+	deaths["axis"] = 0;
+
+	for ( i = 0; i < level.players.size; i++ )
+	{
+		player = level.players[i];
+		team = player.pers["team"];
+		if ( isdefined( team ) && (team == "allies" || team == "axis") )
+		{
+			kills[ team ] += player.kills;
+			deaths[ team ] += player.deaths;
+		}
+	}
+
+	if ( kills["allies"] > kills["axis"] )
+		return "allies";
+	else if ( kills["axis"] > kills["allies"] )
+		return "axis";
+
+	// same number of kills
+
+	if ( deaths["allies"] < deaths["axis"] )
+		return "allies";
+	else if ( deaths["axis"] < deaths["allies"] )
+		return "axis";
+
+	// same number of deaths
+
+	if ( randomint(2) == 0 )
+		return "allies";
+	return "axis";
+}
+
+
+function gf_endGame( winningTeam, endReasonText )
+{
+	if ( isdefined( winningTeam ) )
+		globallogic_score::giveTeamScoreForObjective_DelayPostProcessing( winningTeam, 1 );
+
+	thread globallogic::endGame( winningTeam, endReasonText );
+}
+
+function gf_endGameWithKillcam( winningTeam, endReasonText )
+{
+	gf_endGame( winningTeam, endReasonText );
+}
+
+function getPlayersInTeam( team, b_isAlive = false )
+{
+	players = [];
+	foreach( player in level.players )
+	{
+		if( player.pers["team"] == team && b_isAlive )
+			array::add( players, player );
+	}
+	return players;
+}
+
+function onDeadEvent( team )
+{
+	//winningTeam = (losingTeam === game["attackers"] ? game["defenders"] : game["attackers"]);
+	if ( team == game["attackers"] )
+	{
+		gf_endGameWithKillcam( game["defenders"], game["strings"][game["attackers"]+"_eliminated"] );
+	}
+	else if ( team == game["defenders"] )
+	{
+		gf_endGameWithKillcam( game["attackers"], game["strings"][game["defenders"]+"_eliminated"] );
 	}
 }
