@@ -23,22 +23,30 @@
 function main()
 {
 	globallogic::init();
-
+	// Gamemode util
 	util::registerRoundSwitch( 0, 9 );
 	util::registerTimeLimit( 0, 1440 );
-	util::registerScoreLimit( 0, 50000 );
-	util::registerRoundLimit( 0, 10 );
+	util::registerScoreLimit( 0, 500 );
+	util::registerRoundLimit( 0, 12 );
 	util::registerRoundWinLimit( 0, 10 );
 	util::registerNumLives( 0, 100 );
 
 	globallogic::registerFriendlyFireDelay( level.gameType, 15, 0, 1440 );
 
+	gameobjects::register_allowed_gameobject( level.gameType );
+
+	globallogic_audio::set_leader_gametype_dialog( undefined, undefined, "gameBoost", "gameBoost" );
+
+	// Sets the scoreboard columns and determines with data is sent across the network
+	globallogic::setvisiblescoreboardcolumns( "score", "kills", "deaths", "kdratio", "captures" );
+	//
 	level.teamBased = true;
 	level.overrideTeamScore = true;
+	level.endGameOnScoreLimit = false;
 	//
 	//level.giveCustomLoadout = &giveCustomLoadout;
 	//
-	level.onDeadEvent =&onDeadEvent;
+	level.onDeadEvent = &onDeadEvent;
 	//
 	level.onPlayerDamage = &onPlayerDamage;
 	level.onPlayerKilled = &onPlayerKilled;
@@ -48,20 +56,13 @@ function main()
 	level.onSpawnPlayer = &onSpawnPlayer;
 	//
 	level.onStartGameType = &onStartGameType;
-
+	// Callbacks
 	callback::on_connect( &onPlayerConnect );
-
-	gameobjects::register_allowed_gameobject( level.gameType );
-
-	globallogic_audio::set_leader_gametype_dialog( undefined, undefined, "gameBoost", "gameBoost" );
-
-	// Sets the scoreboard columns and determines with data is sent across the network
-	globallogic::setvisiblescoreboardcolumns( "score", "kills", "deaths", "kdratio", "captures" );
 }
 
 function onStartGameType()
 {
-	setClientNameMode("auto_change");
+	setClientNameMode("manual_change");
 
 	if ( !isdefined( game["switchedsides"] ) )
 		game["switchedsides"] = false;
@@ -105,6 +106,7 @@ function onStartGameType()
 	spawning::updateAllSpawnPoints();
 
 	level.spawn_start = [];
+	level.alwaysUseStartSpawns = true;
 
 	foreach( team in level.teams )
 	{
@@ -116,15 +118,6 @@ function onStartGameType()
 
 	spawnpoint = spawnlogic::get_random_intermission_point();
 	setDemoIntermissionPoint( spawnpoint.origin, spawnpoint.angles );
-
-	if ( !util::isOneRound() )
-	{
-		level.displayRoundEndText = true;
-		if( level.scoreRoundWinBased )
-		{
-			globallogic_score::resetTeamScores();
-		}
-	}
 }
 
 function onPlayerConnect()
@@ -182,17 +175,13 @@ function waitForStreamer()
 
 function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime )
 {
-	IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: " + iDamage );
+	IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: ^1" + iDamage );
 
 	return iDamage;
 }
 
 function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration )
 {
-	///if ( getPlayersInTeam( self.pers["team"], false ).size == 0 )
-	//{
-	//	gf_endGame( attacker, game["strings"][game["defenders"]+"_eliminated"] );
-	//}
 }
 
 function onRoundSwitch()
@@ -263,11 +252,6 @@ function gf_endGame( winningTeam, endReasonText )
 	thread globallogic::endGame( winningTeam, endReasonText );
 }
 
-function gf_endGameWithKillcam( winningTeam, endReasonText )
-{
-	gf_endGame( winningTeam, endReasonText );
-}
-
 function getPlayersInTeam( team, b_isAlive = false )
 {
 	players = [];
@@ -284,10 +268,10 @@ function onDeadEvent( team )
 	//winningTeam = (losingTeam === game["attackers"] ? game["defenders"] : game["attackers"]);
 	if ( team == game["attackers"] )
 	{
-		gf_endGameWithKillcam( game["defenders"], game["strings"][game["attackers"]+"_eliminated"] );
+		gf_endGame( game["defenders"], game["strings"][game["attackers"]+"_eliminated"] );
 	}
 	else if ( team == game["defenders"] )
 	{
-		gf_endGameWithKillcam( game["attackers"], game["strings"][game["defenders"]+"_eliminated"] );
+		gf_endGame( game["attackers"], game["strings"][game["defenders"]+"_eliminated"] );
 	}
 }
