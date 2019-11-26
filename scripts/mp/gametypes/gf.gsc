@@ -124,6 +124,8 @@ function onStartGameType()
 
 	spawnpoint = spawnlogic::get_random_intermission_point();
 	setDemoIntermissionPoint( spawnpoint.origin, spawnpoint.angles );
+
+	dogtags::init();
 }
 
 function onPlayerConnect()
@@ -184,7 +186,7 @@ function waitForStreamer()
 
 function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime )
 {
-	IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: ^2" + iDamage );
+	IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: ^1" + iDamage );
 
 	return iDamage;
 }
@@ -199,7 +201,10 @@ function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, v
 		should_spawn_tags = should_spawn_tags && !globallogic_spawn::maySpawn();
 
 		if( should_spawn_tags && getPlayersInTeam( self.team, true ).size > 0 )
+		{
+			IPrintLnBold( "SPAWNED DOGTAGS" );
 			self thread createPlayerRespawn( attacker );
+		}
 	}
 }
 
@@ -305,7 +310,7 @@ function createPlayerRespawn( attacker )
 	visuals = Array( model );
 
 	// trigger
-	trigger = Spawn( "trigger_radius_use", player.origin + (0,0,32), 0, 32, 32 );
+	trigger = Spawn( "trigger_radius_use", player.origin + (0,0,16), 0, 32, 32 );
 	trigger SetCursorHint( "HINT_NOICON" );
 	trigger TriggerIgnoreTeam();
 	trigger UseTriggerRequireLookAt();
@@ -318,34 +323,34 @@ function createPlayerRespawn( attacker )
 	obj gameobjects::allow_use( "friendly" );
 	obj gameobjects::set_visible_team( "friendly" );
 	obj gameobjects::set_owner_team( player.team );
-	//obj deleteOnEnd(); // TODO: waittill game ends delete the tags
+	obj thread bounce();
+	obj thread deleteOnEnd(); // TODO: waittill game ends delete the tags
 
 	obj.onBeginUse = &on_begin_use_base;
 	obj.onUse = &on_use_base;
 	obj.targetPlayer = player;
 	//obj.onEndUse = &onEndUse;
-	// hide from enemy team
-	model HideFromTeam( attacker.team );
-	//foreach( enemy in getPlayersInTeam( attacker.team ) )
-	//	obj gameobjects::hide_waypoint( enemy );
-	//obj gameobjects::hide_icons( attacker.team );
+	// hide from enemy team(s)
+	foreach( team in level.teams )
+		model HideFromTeam( team );
 	// only show to friendly team
 	model ShowToTeam( player.team );
 }
 
 function on_begin_use_base( player )
 {
-	IPrintLnBold( "REVIVING: " + player.name );
+	IPrintLnBold( "REVIVING BY: " + player.name );
 }
 
 function on_use_base( player )
 {
-	IPrintLnBold( "COMPLETED REVIVE OF: " + self.targetPlayer.name );
+	IPrintLnBold( "REVIVED: " + self.targetPlayer.name );
 
 	self.targetPlayer.pers["lives"] = 1;
 	self.targetPlayer [[level.spawnClient]]();
 	self.targetPlayer SetOrigin( self.origin - (0,0,32));
-	self.targetPlayer.health = 75; // TODO: experiment
+	self.targetPlayer.health = 60; // TODO: experiment
+	self.targetPlayer.maxhealth = 60; // TODO: experiment
 
 	// TODO:
 	// update pos, fix the class give, change health to 75 or whatever
@@ -358,4 +363,37 @@ function onEndUse( team, player, result )
 {
 	//IPrintLnBold( "RESULT: " + result + "?");
 	//self destroy_object();
+}
+
+function private deleteOnEnd()
+{
+	self.trigger endon( "destroyed" );
+
+	level waittill( "game_ended" );
+
+	if ( isdefined( self ) )
+		self gameobjects::destroy_object();
+}
+
+function private bounce()
+{
+	level endon( "game_ended" );
+	self endon( "reset" );
+	self.trigger endon( "destroyed" );
+
+	bottomPos = self.curOrigin;
+	topPos = self.curOrigin + (0,0,12);
+
+	while( isdefined( self ) )
+	{
+		self.visuals[0] moveTo( topPos, 0.5, 0.15, 0.15 );
+		self.visuals[0] rotateYaw( 180, 0.5 );
+
+		wait( 0.5 );
+
+		self.visuals[0] moveTo( bottomPos, 0.5, 0.15, 0.15 );
+		self.visuals[0] rotateYaw( 180, 0.5 );
+
+		wait( 0.5 );
+	}
 }
