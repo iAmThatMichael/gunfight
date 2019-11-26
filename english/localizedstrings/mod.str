@@ -2,4 +2,13 @@ VERSION				"1"
 CONFIG				"C:\projects\cod\t7\bin\StringEd.cfg"
 FILENOTES			""
 
+REFERENCE 		OBJECTIVES_GUN
+LANG_ENGLISH	"Gunfight"
+
+REFERENCE 		OBJECTIVES_GUN_SCORE
+LANG_ENGLISH	"Eliminate the enemy team."
+
+REFERENCE 		OBJECTIVES_GUN_HINT
+LANG_ENGLISH	"Eliminate the enemy team."
+
 ENDMARKER

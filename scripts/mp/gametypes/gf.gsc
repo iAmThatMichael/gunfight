@@ -1,3 +1,4 @@
+#using scripts\shared\callbacks_shared;
 #using scripts\shared\gameobjects_shared;
 #using scripts\shared\math_shared;
 #using scripts\shared\util_shared;
@@ -8,53 +9,13 @@
 #using scripts\mp\gametypes\_globallogic_audio;
 #using scripts\mp\gametypes\_globallogic_score;
 #using scripts\mp\gametypes\_globallogic_spawn;
+#using scripts\mp\gametypes\_globallogic_ui;
 #using scripts\mp\gametypes\_spawning;
 #using scripts\mp\gametypes\_spawnlogic;
 #using scripts\mp\killstreaks\_killstreaks;
 #using scripts\mp\gametypes\_dogtags;
 
-#using scripts\mp\_teamops;
-
 #using scripts\mp\_util;
-
-/*
-	TDM - Team Deathmatch
-	Objective: 	Score points for your team by eliminating players on the opposing team
-	Map ends:	When one team reaches the score limit, or time limit is reached
-	Respawning:	No wait / Near teammates
-
-	Level requirements
-	------------------
-		Spawnpoints:
-			classname		mp_tdm_spawn
-			All players spawn from these. The spawnpoint chosen is dependent on the current locations of teammates and enemies
-			at the time of spawn. Players generally spawn behind their teammates relative to the direction of enemies.
-
-		Spectator Spawnpoints:
-			classname		mp_global_intermission
-			Spectators spawn from these and intermission is viewed from these positions.
-			Atleast one is required, any more and they are randomly chosen between.
-
-	Level script requirements
-	-------------------------
-		Team Definitions:
-			game["allies"] = "marines";
-			game["axis"] = "nva";
-			game["team3"] = "guys_who_hate_both_other_teams";
-			This sets the nationalities of the teams. Allies can be american, british, or russian. Axis can be german.
-
-		If using minefields or exploders:
-			load::main();
-
-	Optional level script settings
-	------------------------------
-		Soldier Type and Variation:
-			game["soldiertypeset"] = "seals";
-			This sets what character models are used for each nationality on a particular map.
-
-			Valid settings:
-				soldiertypeset	seals
-*/
 
 #precache( "string", "MOD_OBJECTIVES_GUN" );
 #precache( "string", "MOD_OBJECTIVES_GUN_SCORE" );
@@ -75,13 +36,22 @@ function main()
 
 	level.teamBased = true;
 	level.overrideTeamScore = true;
-	level.onStartGameType =&onStartGameType;
-	level.onSpawnPlayer =&onSpawnPlayer;
+	//
+	//level.giveCustomLoadout = &giveCustomLoadout;
+	level.onPlayerDamage = &onPlayerDamage;
 	level.onPlayerKilled =&onPlayerKilled;
+	//
+	level.onRoundSwitch =&onRoundSwitch;
+	//
+	level.onSpawnPlayer = &onSpawnPlayer;
+	//
+	level.onStartGameType = &onStartGameType;
+
+	callback::on_connect( &onPlayerConnect );
 
 	gameobjects::register_allowed_gameobject( level.gameType );
 
-	globallogic_audio::set_leader_gametype_dialog ( undefined, undefined, "gameBoost", "gameBoost" );
+	globallogic_audio::set_leader_gametype_dialog( undefined, undefined, "gameBoost", "gameBoost" );
 
 	// Sets the scoreboard columns and determines with data is sent across the network
 	globallogic::setvisiblescoreboardcolumns( "score", "kills", "deaths", "kdratio", "captures" );
@@ -155,6 +125,11 @@ function onStartGameType()
 	}
 }
 
+function onPlayerConnect()
+{
+	self thread loadPlayer();
+}
+
 function onSpawnPlayer(predictedSpawn)
 {
 	self.usingObj = undefined;
@@ -167,6 +142,71 @@ function onSpawnPlayer(predictedSpawn)
 	spawning::onSpawnPlayer(predictedSpawn);
 }
 
+function loadPlayer()
+{
+	level endon("game_ended");
+	self endon("death");
+	self endon("disconnect");
+	self endon("spawned");
+
+	if( IS_TRUE( self.hasSpawned ) )
+	{
+		return;
+	}
+
+	if( isdefined( self.pers["team"] ) && self.pers["team"] == "spectator" )
+	{
+		return;
+	}
+
+	self waitForStreamer();
+
+	self.pers["class"] = level.defaultClass;
+	self.curClass = level.defaultClass;
+
+	self globallogic_ui::closeMenus();
+	self CloseMenu("ChooseClass_InGame");
+	self thread [[level.spawnClient]]();
+}
+
+function waitForStreamer()
+{
+	started_waiting = GetTime();
+	while( !self IsStreamerReady( -1, 1 ) && started_waiting + 90000 > GetTime() )
+	{
+		WAIT_SERVER_FRAME;
+	}
+}
+
+function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime )
+{
+	IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: " + iDamage );
+
+	return iDamage;
+}
+
 function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration )
 {
+}
+
+function onRoundSwitch()
+{
+	if ( !isdefined( game["switchedsides"] ) )
+		game["switchedsides"] = false;
+
+	if ( game["teamScores"]["allies"] == level.scorelimit - 1 && game["teamScores"]["axis"] == level.scorelimit - 1 )
+	{
+		// overtime! team that's ahead in kills gets to defend.
+		aheadTeam = getBetterTeam();
+		if ( aheadTeam != game["defenders"] )
+		{
+			game["switchedsides"] = !game["switchedsides"];
+		}
+		level.halftimeType = "overtime";
+	}
+	else
+	{
+		level.halftimeType = "halftime";
+		game["switchedsides"] = !game["switchedsides"];
+	}
 }
