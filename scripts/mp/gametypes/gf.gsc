@@ -6,6 +6,7 @@
 
 #insert scripts\shared\shared.gsh;
 
+#using scripts\mp\gametypes\_dogtags;
 #using scripts\mp\gametypes\_globallogic;
 #using scripts\mp\gametypes\_globallogic_audio;
 #using scripts\mp\gametypes\_globallogic_score;
@@ -19,6 +20,7 @@
 #precache( "string", "MOD_OBJECTIVES_GUN" );
 #precache( "string", "MOD_OBJECTIVES_GUN_SCORE" );
 #precache( "string", "MOD_OBJECTIVES_GUN_HINT" );
+#precache( "xmodel", "p7_dogtags_enemy" );
 
 function main()
 {
@@ -43,6 +45,7 @@ function main()
 	level.teamBased = true;
 	level.overrideTeamScore = true;
 	level.endGameOnScoreLimit = false;
+	level.respawnMechanic = GetDvarInt("scr_gf_respawn", 0);
 	//
 	//level.giveCustomLoadout = &giveCustomLoadout;
 	//
@@ -164,7 +167,7 @@ function loadPlayer()
 	self.curClass = level.defaultClass;
 
 	self globallogic_ui::closeMenus();
-	self CloseMenu("ChooseClass_InGame");
+	self CloseMenu( "ChooseClass_InGame" );
 	self thread [[level.spawnClient]]();
 }
 
@@ -186,6 +189,11 @@ function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath,
 
 function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration )
 {
+	if ( level.respawnMechanic )
+	{
+		IPrintLnBold( "HANDLE RESPAWN DROP" );
+		self thread createPlayerRespawn();
+	}
 }
 
 function onRoundSwitch()
@@ -261,7 +269,7 @@ function getPlayersInTeam( team, b_isAlive = false )
 	players = [];
 	foreach( player in level.players )
 	{
-		if( player.pers["team"] == team && b_isAlive )
+		if ( player.pers["team"] == team && b_isAlive )
 			array::add( players, player );
 	}
 	return players;
@@ -278,4 +286,68 @@ function onDeadEvent( team )
 	{
 		gf_endGame( game["attackers"], game["strings"][game["defenders"]+"_eliminated"] );
 	}
+}
+
+function createPlayerRespawn()
+{
+	player = self;
+
+	// model
+	model = Spawn( "script_model", player.origin );
+	model SetModel( "p7_dogtags_enemy" );
+	visuals = Array( model );
+
+	// trigger
+	trigger = Spawn( "trigger_radius_use", player.origin + (0,0,32), 0, 32, 32 );
+	trigger SetCursorHint( "HINT_NOICON" );
+	trigger TriggerIgnoreTeam();
+	trigger UseTriggerRequireLookAt();
+
+	// gameobject - carry
+	obj = gameobjects::create_use_object( player.team, trigger, visuals, (0,0,0), IString( "hardpoint" ) );
+	obj gameobjects::set_use_time( 5 );
+	obj gameobjects::set_use_text( "Press &&1 to Revive Teammate" );
+	obj gameobjects::set_use_hint_text( "Press &&1 to Revive Teammate" );
+	obj gameobjects::allow_use( "friendly" );
+	obj gameobjects::set_visible_team( "friendly" );
+	obj gameobjects::set_owner_team( player.team );
+
+	obj.onBeginUse = &on_begin_use_base;
+	obj.onUse = &on_use_base;
+	obj.targetPlayer = player;
+	//obj.onEndUse = &onEndUse;
+	// hide from all teams
+	foreach( team in level.teams )
+	{
+		model HideFromTeam( team );
+	}
+	// only show to friendly team
+	model ShowToTeam( player.team );
+}
+
+function on_begin_use_base( player )
+{
+	IPrintLnBold( "REVIVING: " + player.name );
+}
+
+function on_use_base( player )
+{
+	IPrintLnBold( "COMPLETED REVIVE OF: " + self.targetPlayer.name );
+
+	self.targetPlayer.pers["lives"] = 1;
+	self.targetPlayer [[level.spawnClient]]();
+	self.targetPlayer SetOrigin( self.origin - (0,0,32));
+	self.targetPlayer.health = 75; // TODO: experiment
+
+	// TODO:
+	// update pos, fix the class give, change health to 75 or whatever
+	//self.targetPlayer
+
+	self gameobjects::destroy_object();
+}
+
+function onEndUse( team, player, result )
+{
+	//IPrintLnBold( "RESULT: " + result + "?");
+	//self destroy_object();
 }
