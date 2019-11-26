@@ -1,0 +1,6 @@
+# Misc Mod Tools Files
+*.ff
+*.log
+*.xpak
+
+zone_source/*/

@@ -1,0 +1,10 @@
+>mode,mp
+>type,common
+
+#include "mp_mod.class"
+
+scriptparsetree,scripts/mp/gametypes/gf.gsc
+scriptparsetree,scripts/mp/gametypes/gf.csc
+rawfile,gamedata/gamesettings/mp/gamesettings_gf.cfg
+
+localize,mod
