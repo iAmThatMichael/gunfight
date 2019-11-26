@@ -62,6 +62,8 @@ function main()
 	// Callbacks
 	callback::on_connect( &onPlayerConnect );
 	callback::on_spawned( &onPlayerSpawned );
+	// DVars
+	SetDvar( "ui_hud_showdeathicons", "0" ); // disable deathicons
 }
 
 function onStartGameType()
@@ -182,7 +184,7 @@ function waitForStreamer()
 
 function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime )
 {
-	IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: ^1" + iDamage );
+	IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: ^2" + iDamage );
 
 	return iDamage;
 }
@@ -191,8 +193,13 @@ function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, v
 {
 	if ( level.respawnMechanic )
 	{
-		IPrintLnBold( "HANDLE RESPAWN DROP" );
-		self thread createPlayerRespawn();
+		should_spawn_tags = self dogtags::should_spawn_tags(eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration);
+
+		// we should spawn tags if one the previous statements were true and we may not spawn
+		should_spawn_tags = should_spawn_tags && !globallogic_spawn::maySpawn();
+
+		if( should_spawn_tags && getPlayersInTeam( self.team, true ).size > 0 )
+			self thread createPlayerRespawn( attacker );
 	}
 }
 
@@ -269,7 +276,7 @@ function getPlayersInTeam( team, b_isAlive = false )
 	players = [];
 	foreach( player in level.players )
 	{
-		if ( player.pers["team"] == team && b_isAlive )
+		if ( player.pers["team"] == team && (b_isAlive && IsAlive( player )) )
 			array::add( players, player );
 	}
 	return players;
@@ -288,7 +295,7 @@ function onDeadEvent( team )
 	}
 }
 
-function createPlayerRespawn()
+function createPlayerRespawn( attacker )
 {
 	player = self;
 
@@ -304,23 +311,24 @@ function createPlayerRespawn()
 	trigger UseTriggerRequireLookAt();
 
 	// gameobject - carry
-	obj = gameobjects::create_use_object( player.team, trigger, visuals, (0,0,0), IString( "hardpoint" ) );
+	obj = gameobjects::create_use_object( player.team, trigger, visuals, (0,0,0), IString( "headicon_dead" ) );
 	obj gameobjects::set_use_time( 5 );
 	obj gameobjects::set_use_text( "Press &&1 to Revive Teammate" );
 	obj gameobjects::set_use_hint_text( "Press &&1 to Revive Teammate" );
 	obj gameobjects::allow_use( "friendly" );
 	obj gameobjects::set_visible_team( "friendly" );
 	obj gameobjects::set_owner_team( player.team );
+	//obj deleteOnEnd(); // TODO: waittill game ends delete the tags
 
 	obj.onBeginUse = &on_begin_use_base;
 	obj.onUse = &on_use_base;
 	obj.targetPlayer = player;
 	//obj.onEndUse = &onEndUse;
-	// hide from all teams
-	foreach( team in level.teams )
-	{
-		model HideFromTeam( team );
-	}
+	// hide from enemy team
+	model HideFromTeam( attacker.team );
+	//foreach( enemy in getPlayersInTeam( attacker.team ) )
+	//	obj gameobjects::hide_waypoint( enemy );
+	//obj gameobjects::hide_icons( attacker.team );
 	// only show to friendly team
 	model ShowToTeam( player.team );
 }
