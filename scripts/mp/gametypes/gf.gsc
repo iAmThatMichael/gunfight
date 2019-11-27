@@ -164,14 +164,18 @@ function loadPlayer()
 	{
 		return;
 	}
-
+	// satisfy globallogic_spawn maySpawn() to prevent errors on spawn
+	self.pers["lives"] = 1;
+	self.waitingToSpawn = true;
+	// wait for streamer
 	self waitForStreamer();
-
+	// set a default class
 	self.pers["class"] = level.defaultClass;
 	self.curClass = level.defaultClass;
-
+	// close all menus
 	self globallogic_ui::closeMenus();
 	self CloseMenu( "ChooseClass_InGame" );
+	// just spawn the player
 	self thread [[level.spawnClient]]();
 }
 
@@ -281,8 +285,16 @@ function getPlayersInTeam( team, b_isAlive = false )
 	players = [];
 	foreach( player in level.players )
 	{
-		if ( player.pers["team"] == team && (b_isAlive && IsAlive( player )) )
-			array::add( players, player );
+		if ( player.pers["team"] == team )
+		{
+			if ( b_isAlive )
+			{
+				if ( b_isAlive == IsAlive( player ) )
+					array::add( players, player );
+			}
+			else
+				array::add( players, player );
+		}
 	}
 	return players;
 }
@@ -349,11 +361,11 @@ function on_use_base( player )
 	self.targetPlayer.pers["lives"] = 1;
 	self.targetPlayer [[level.spawnClient]]();
 	self.targetPlayer SetOrigin( self.origin - (0,0,32));
-	self.targetPlayer.health = 60; // TODO: experiment
-	self.targetPlayer.maxhealth = 60; // TODO: experiment
+	self.targetPlayer.health = 65; // TODO: experiment
+	self.targetPlayer.maxhealth = 65; // TODO: experiment
 
 	// TODO:
-	// update pos, fix the class give, change health to 75 or whatever
+	// fix the class give, change health to 75 or whatever
 	//self.targetPlayer
 
 	self gameobjects::destroy_object();
