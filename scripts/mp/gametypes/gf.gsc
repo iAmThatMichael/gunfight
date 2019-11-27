@@ -2,6 +2,7 @@
 #using scripts\shared\callbacks_shared;
 #using scripts\shared\gameobjects_shared;
 #using scripts\shared\math_shared;
+#using scripts\shared\player_shared;
 #using scripts\shared\util_shared;
 
 #insert scripts\shared\shared.gsh;
@@ -21,6 +22,9 @@
 #precache( "string", "MOD_OBJECTIVES_GUN_SCORE" );
 #precache( "string", "MOD_OBJECTIVES_GUN_HINT" );
 #precache( "xmodel", "p7_dogtags_enemy" );
+
+// TODO: Overtime Flag
+// on round time end, compare health give the W
 
 function main()
 {
@@ -144,8 +148,9 @@ function onPlayerSpawned()
 	self endon( "disconnect" );
 
 	// Freeze bots for development
-	if ( self IsTestClient() )
-		self FreezeControlsAllowLook( true );
+	//if ( self IsTestClient() )
+	//	self FreezeControlsAllowLook( true );
+	self thread watchGrenadeUsage();
 }
 
 function loadPlayer()
@@ -155,12 +160,12 @@ function loadPlayer()
 	self endon("disconnect");
 	self endon("spawned");
 
-	if( IS_TRUE( self.hasSpawned ) )
+	if ( IS_TRUE( self.hasSpawned ) )
 	{
 		return;
 	}
 
-	if( isdefined( self.pers["team"] ) && self.pers["team"] == "spectator" )
+	if ( isdefined( self.pers["team"] ) && self.pers["team"] == "spectator" )
 	{
 		return;
 	}
@@ -204,11 +209,8 @@ function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, v
 		// we should spawn tags if one the previous statements were true and we may not spawn
 		should_spawn_tags = should_spawn_tags && !globallogic_spawn::maySpawn();
 
-		if( should_spawn_tags && getPlayersInTeam( self.team, true ).size > 0 )
-		{
-			IPrintLnBold( "SPAWNED DOGTAGS" );
+		if ( should_spawn_tags && getPlayersInTeam( self.team, true ).size > 0 )
 			self thread createPlayerRespawn( attacker );
-		}
 	}
 }
 
@@ -315,10 +317,26 @@ function onDeadEvent( team )
 function createPlayerRespawn( attacker )
 {
 	player = self;
+	// save the weapondata
+	a_weapon_list = player GetWeaponsList();
+	foreach( weapon in player GetWeaponsList( true ) )
+	{
+		// grenades are dropped upon death, so we need to ignore the weapon if we were holding it
+		if ( self._throwingGrenade === weapon )
+			continue;
+
+		ARRAY_ADD( player._weapons, player::get_weapondata( weapon ) );
+	}
 
 	// model
 	model = Spawn( "script_model", player.origin );
-	model SetModel( "p7_dogtags_enemy" );
+	model SetModel( player GetFriendlyDogTagModel() );
+	model DontInterpolate();
+	// hide from enemy team(s)
+	foreach( team in level.teams )
+		model HideFromTeam( team );
+	// only show to friendly team
+	model ShowToTeam( player.team );
 	visuals = Array( model );
 
 	// trigger
@@ -327,7 +345,7 @@ function createPlayerRespawn( attacker )
 	trigger TriggerIgnoreTeam();
 	trigger UseTriggerRequireLookAt();
 
-	// gameobject - carry
+	// object - base
 	obj = gameobjects::create_use_object( player.team, trigger, visuals, (0,0,0), IString( "headicon_dead" ) );
 	obj gameobjects::set_use_time( 5 );
 	obj gameobjects::set_use_text( "Press &&1 to Revive Teammate" );
@@ -335,39 +353,37 @@ function createPlayerRespawn( attacker )
 	obj gameobjects::allow_use( "friendly" );
 	obj gameobjects::set_visible_team( "friendly" );
 	obj gameobjects::set_owner_team( player.team );
-	obj thread bounce();
-	obj thread deleteOnEnd(); // TODO: waittill game ends delete the tags
 
+	// object - functionality
 	obj.onBeginUse = &on_begin_use_base;
 	obj.onUse = &on_use_base;
 	obj.targetPlayer = player;
 	//obj.onEndUse = &onEndUse;
-	// hide from enemy team(s)
-	foreach( team in level.teams )
-		model HideFromTeam( team );
-	// only show to friendly team
-	model ShowToTeam( player.team );
+
+	// makes the dogtags bounce
+	obj thread bounce();
+	// delete the gameobject when round/match ends or when player DC's
+	obj thread deleteOnEnd(); // TODO: waittill game ends delete the tags
 }
 
 function on_begin_use_base( player )
 {
-	IPrintLnBold( "REVIVING BY: " + player.name );
 }
 
 function on_use_base( player )
 {
-	IPrintLnBold( "REVIVED: " + self.targetPlayer.name );
-
 	self.targetPlayer.pers["lives"] = 1;
 	self.targetPlayer [[level.spawnClient]]();
+	// set the origin back to the deathpoint
 	self.targetPlayer SetOrigin( self.origin - (0,0,32));
-	self.targetPlayer.health = 65; // TODO: experiment
-	self.targetPlayer.maxhealth = 65; // TODO: experiment
-
-	// TODO:
-	// fix the class give, change health to 75 or whatever
-	//self.targetPlayer
-
+	self.targetPlayer.health = 65;
+	self.targetPlayer.maxhealth = 65;
+	// wait a server frame to ensure player is back
+	WAIT_SERVER_FRAME;
+	// make sure to take away their inventory before giving it back
+	self.targetPlayer TakeAllWeapons();
+	self.targetPlayer player::give_back_weapons( true );
+	// delete the gameobject afterwards
 	self gameobjects::destroy_object();
 }
 
@@ -381,7 +397,7 @@ function private deleteOnEnd()
 {
 	self.trigger endon( "destroyed" );
 
-	level waittill( "game_ended" );
+	util::waittill_any_ents_two( self.targetPlayer, "disconnect", level, "game_ended" );
 
 	if ( isdefined( self ) )
 		self gameobjects::destroy_object();
@@ -407,5 +423,39 @@ function private bounce()
 		self.visuals[0] rotateYaw( 180, 0.5 );
 
 		wait( 0.5 );
+	}
+}
+
+function private watchGrenadeUsage()
+{
+	self endon( "death" );
+	self endon( "disconnect" );
+	// custom monitor system to handle equipment -- handles both
+	self._throwingGrenade = level.weaponNone;
+	// monitor for when the grenade "ends"
+	self thread watchGrenadeEnd();
+
+	while ( true )
+	{
+		self waittill ( "grenade_pullback", weapon );
+
+		self._throwingGrenade = weapon;
+	}
+}
+
+function private watchGrenadeEnd()
+{
+	self endon( "death" );
+	self endon( "disconnect" );
+
+	while ( true )
+	{
+		// we consider end on cancelled or fired
+		msg = self util::waittill_any_return( "grenade_fire", "grenade_throw_cancelled" );
+
+		if ( self._throwingGrenade == level.weaponNone )
+			continue;
+
+		self._throwingGrenade = level.weaponNone;
 	}
 }
