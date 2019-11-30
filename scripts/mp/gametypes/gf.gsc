@@ -27,34 +27,6 @@
 #precache( "string", "MOD_OBJECTIVES_GUN_HINT" );
 #precache( "xmodel", "p7_dogtags_enemy" );
 
-#precache( "string", "OBJECTIVES_DOM" );
-#precache( "string", "OBJECTIVES_DOM_SCORE" );
-#precache( "string", "OBJECTIVES_DOM_HINT" );
-#precache( "string", "MP_CAPTURING_FLAG" );
-#precache( "string", "MP_LOSING_FLAG" );
-#precache( "string", "MP_DOM_YOUR_FLAG_WAS_CAPTURED" );
-#precache( "string", "MP_DOM_ENEMY_FLAG_CAPTURED" );
-#precache( "string", "MP_DOM_NEUTRAL_FLAG_CAPTURED" );
-#precache( "string", "MP_ENEMY_FLAG_CAPTURED_BY" );
-#precache( "string", "MP_NEUTRAL_FLAG_CAPTURED_BY" );
-#precache( "string", "MP_FRIENDLY_FLAG_CAPTURED_BY" );
-#precache( "string", "MP_DOM_FLAG_A_CAPTURED_BY" );
-#precache( "string", "MP_DOM_FLAG_B_CAPTURED_BY" );
-#precache( "string", "MP_DOM_FLAG_C_CAPTURED_BY" );
-#precache( "string", "MP_DOM_FLAG_D_CAPTURED_BY" );
-#precache( "string", "MP_DOM_FLAG_E_CAPTURED_BY" );
-#precache( "fx", "ui/fx_ui_flagbase_blue" );
-#precache( "fx", "ui/fx_ui_flagbase_orng" );
-#precache( "fx", "ui/fx_ui_flagbase_wht" );
-#precache( "objective", "dom_a" );
-#precache( "objective", "dom_b" );
-#precache( "objective", "dom_c" );
-
-#define DIALOG_THROTTLE	10000
-
-// TODO: Overtime Flag
-// on round time end, compare health give the W
-
 function main()
 {
 	globallogic::init();
@@ -77,7 +49,6 @@ function main()
 	globallogic::setvisiblescoreboardcolumns( "score", "kills", "deaths", "kdratio", "captures" );
 	//
 	level.endGameOnScoreLimit = false;
-	level.gfMadeFlag = false; // TODO: rename var
 	level.overrideTeamScore = true;
 	level.respawnMechanic = GetDvarInt("scr_gf_respawn", 0);
 	level.teamBased = true;
@@ -136,7 +107,6 @@ function main()
 	game["dialogTime"]["losing_a"] = 0;
 	game["dialogTime"]["losing_b"] = 0;
 	game["dialogTime"]["losing_c"] = 0;
-
 }
 
 function onStartGameType()
@@ -196,12 +166,12 @@ function onStartGameType()
 	level.startPos["axis"] = level.spawn_start[ "axis" ][0].origin;
 
 	level.mapCenter = math::find_box_center( level.spawnMins, level.spawnMaxs );
-	setMapCenter( level.mapCenter );
+	SetMapCenter( level.mapCenter );
 
 	spawnpoint = spawnlogic::get_random_intermission_point();
-	setDemoIntermissionPoint( spawnpoint.origin, spawnpoint.angles );
+	SetDemoIntermissionPoint( spawnpoint.origin, spawnpoint.angles );
 
-	// might be late to create all this shit so just create onStartGametype
+	// init DOM stuff - vars and flags
 	dom::updateGametypeDvars();
 	thread dom::domFlags();
 	gunfightFlagUpdate();
@@ -237,12 +207,14 @@ function gunfightFlagUpdate()
 {
 	foreach ( flagObj in level.domFlags )
 	{
+		// delete all flags that isn't the B flag
 		if ( flagObj.label != "_b" )
 		{
 			flagObj gameobjects::destroy_object();
 		}
 		else
 		{
+			// B flag disable
 			flagObj gameobjects::disable_object();
 			flagObj gameobjects::allow_use( "none" );
 			flagObj gameobjects::set_model_visibility( false );
@@ -254,6 +226,7 @@ function gunfightFlagUpdate()
 function gunfightSpawnFlag()
 {
 	// TODO: fix the model/FX
+	// show the B flag and monitor for flag-cap
 	level.gunfightFlag gameobjects::enable_object();
 	level.gunfightFlag gameobjects::allow_use( "any" );
 	level.gunfightFlag gameobjects::set_model_visibility( true );
