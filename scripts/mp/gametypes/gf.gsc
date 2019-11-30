@@ -15,6 +15,7 @@
 #using scripts\mp\gametypes\_globallogic_score;
 #using scripts\mp\gametypes\_globallogic_spawn;
 #using scripts\mp\gametypes\_globallogic_ui;
+#using scripts\mp\gametypes\_globallogic_utils;
 #using scripts\mp\gametypes\_spawning;
 #using scripts\mp\gametypes\_spawnlogic;
 
@@ -48,10 +49,12 @@ function main()
 	// Sets the scoreboard columns and determines with data is sent across the network
 	globallogic::setvisiblescoreboardcolumns( "score", "kills", "deaths", "kdratio", "captures" );
 	//
-	level.teamBased = true;
-	level.overrideTeamScore = true;
 	level.endGameOnScoreLimit = false;
+	level.gfMadeFlag = false; // TODO: rename var
+	level.overrideTeamScore = true;
 	level.respawnMechanic = GetDvarInt("scr_gf_respawn", 0);
+	level.teamBased = true;
+	level.timeLimitOverride = false;
 	//
 	//level.giveCustomLoadout = &giveCustomLoadout;
 	//
@@ -72,7 +75,8 @@ function main()
 	callback::on_spawned( &onPlayerSpawned );
 	callback::on_start_gametype( &onCBStartGametype );
 	// DVars
-	SetDvar( "ui_hud_showdeathicons", "0" ); // disable deathicons
+	// disable deathicons - if respawn is enabled
+	SetDvar( "ui_hud_showdeathicons", !level.respawnMechanic );
 }
 
 function onStartGameType()
@@ -134,7 +138,7 @@ function onStartGameType()
 	spawnpoint = spawnlogic::get_random_intermission_point();
 	setDemoIntermissionPoint( spawnpoint.origin, spawnpoint.angles );
 
-	//dogtags::init();
+	//thread gunfightFlagSpawn();
 }
 
 function onPlayerConnect()
@@ -163,43 +167,45 @@ function onPlayerSpawned()
 	self killstreaks::hide_compass();
 }
 
-function loadPlayer()
+function gunfightTimer()
 {
-	level endon("game_ended");
-	self endon("death");
-	self endon("disconnect");
-	self endon("spawned");
-
-	if ( IS_TRUE( self.hasSpawned ) )
+	level endon( "game_ended" );
+	// override the time
+	level.timeLimitOverride = true;
+	// calculate new time limit
+	additionalTime = 30 * 1000;
+	timeLimit = Int( GetTime() + additionalTime );
+	// set the new time
+	SetGameEndTime( timeLimit );
+	// assign new timelimit var, internal one keeps changing
+	level._timeLimit = timeLimit;
+	// don't think MW has a sound effect when timer is counting down
+	//level.bombTimer = timeLimit;
+	//thread globallogic_utils::playTickingSound( "mpl_sab_ui_suitcasebomb_timer" );
+	while ( game["state"] == "playing" )
 	{
-		return;
-	}
+		// returns as milliseconds, so divide by 1000 for seconds
+		timeRemaining = (level._timeLimit - GetTime());
+		// if time is less than or equal to 0 AND we have made a flag, end the round
+		if ( timeRemaining <= 0 )
+		{
+			[[level.onTimeLimit]]();
+		}
 
-	if ( isdefined( self.pers["team"] ) && self.pers["team"] == "spectator" )
-	{
-		return;
+		WAIT_SERVER_FRAME;
 	}
-	// satisfy globallogic_spawn maySpawn() to prevent errors on spawn
-	self.pers["lives"] = 1;
-	self.waitingToSpawn = true;
-	// wait for streamer
-	self waitForStreamer();
-	// set a default class
-	self.pers["class"] = level.defaultClass;
-	self.curClass = level.defaultClass;
-	// close all menus
-	self globallogic_ui::closeMenus();
-	self CloseMenu( "ChooseClass_InGame" );
-	// just spawn the player
-	self thread [[level.spawnClient]]();
 }
 
-function waitForStreamer()
+function onDeadEvent( team )
 {
-	started_waiting = GetTime();
-	while( !self IsStreamerReady( -1, 1 ) && started_waiting + 90000 > GetTime() )
+	//winningTeam = (losingTeam === game["attackers"] ? game["defenders"] : game["attackers"]);
+	if ( team == game["attackers"] )
 	{
-		WAIT_SERVER_FRAME;
+		gf_endGame( game["defenders"], game["strings"][game["attackers"]+"_eliminated"] );
+	}
+	else if ( team == game["defenders"] )
+	{
+		gf_endGame( game["attackers"], game["strings"][game["defenders"]+"_eliminated"] );
 	}
 }
 
@@ -244,6 +250,29 @@ function onRoundSwitch()
 		level.halftimeType = "halftime";
 		game["switchedsides"] = !game["switchedsides"];
 	}
+}
+
+function onTimeLimit()
+{
+	if ( !level.timeLimitOverride )
+	{
+		thread gunfightTimer();
+		return;
+	}
+	// once time runs out from the OBJ flag determine the winnner
+	alliesHealth = calculateHealthForTeam( "allies" );
+	axisHealth = calculateHealthForTeam( "axis" );
+	// if the health for the teams are the same it's a draw
+	if ( alliesHealth == axisHealth )
+	{
+		// draw tie message
+		gf_endGame( "tie", "Round ended in a draw" );
+		return;
+	}
+	// determine the winner from best health
+	winner = (alliesHealth > axisHealth ? "allies" : "axis" );
+	// end the round and give the winner team score
+	gf_endGame( winner, "Team had more health!" );
 }
 
 function getBetterTeam()
@@ -312,19 +341,6 @@ function getPlayersInTeam( team, b_isAlive = false )
 	return players;
 }
 
-function onDeadEvent( team )
-{
-	//winningTeam = (losingTeam === game["attackers"] ? game["defenders"] : game["attackers"]);
-	if ( team == game["attackers"] )
-	{
-		gf_endGame( game["defenders"], game["strings"][game["attackers"]+"_eliminated"] );
-	}
-	else if ( team == game["defenders"] )
-	{
-		gf_endGame( game["attackers"], game["strings"][game["defenders"]+"_eliminated"] );
-	}
-}
-
 function createPlayerRespawn( attacker )
 {
 	player = self;
@@ -365,10 +381,8 @@ function createPlayerRespawn( attacker )
 	obj gameobjects::set_owner_team( player.team );
 
 	// object - functionality
-	//obj.onBeginUse = &on_begin_use_base;
-	obj.onUse = &on_use_base;
+	obj.onUse = &onTagUse;
 	obj.targetPlayer = player;
-	//obj.onEndUse = &onEndUse;
 
 	// makes the dogtags bounce
 	obj thread bounce();
@@ -376,11 +390,7 @@ function createPlayerRespawn( attacker )
 	obj thread deleteOnEnd(); // TODO: waittill game ends delete the tags
 }
 
-function on_begin_use_base( player )
-{
-}
-
-function on_use_base( player )
+function onTagUse( player )
 {
 	self.targetPlayer.pers["lives"] = 1;
 	self.targetPlayer [[level.spawnClient]]();
@@ -397,43 +407,76 @@ function on_use_base( player )
 	self gameobjects::destroy_object();
 }
 
-function onEndUse( team, player, result )
+function onCBStartGametype()
 {
-	//IPrintLnBold( "RESULT: " + result + "?");
-	//self destroy_object();
+	// spawn a CUAV in order to prevent the minimap
+	// from revealing info when you hit ESC or other
+	// locations for it to show up.
+
+	// have to wait until it exists (well the script)
+	while ( !isdefined( level.activeCounterUAVs ) )
+		WAIT_SERVER_FRAME;
+	// increment CUAV for both teams
+	level.activeCounterUAVs[ "allies" ]++;
+	level.activeCounterUAVs[ "axis" ]++;
+	// notify that CUAV is in
+	level notify( "counter_uav_updated" );
 }
 
-function private deleteOnEnd()
+function loadPlayer()
 {
-	self.trigger endon( "destroyed" );
+	level endon("game_ended");
+	self endon("death");
+	self endon("disconnect");
+	self endon("spawned");
 
-	util::waittill_any_ents_two( self.targetPlayer, "disconnect", level, "game_ended" );
-
-	if ( isdefined( self ) )
-		self gameobjects::destroy_object();
-}
-
-function private bounce()
-{
-	level endon( "game_ended" );
-	self endon( "reset" );
-	self.trigger endon( "destroyed" );
-
-	bottomPos = self.curOrigin;
-	topPos = self.curOrigin + (0,0,12);
-
-	while( isdefined( self ) )
+	if ( IS_TRUE( self.hasSpawned ) )
 	{
-		self.visuals[0] moveTo( topPos, 0.5, 0.15, 0.15 );
-		self.visuals[0] rotateYaw( 180, 0.5 );
-
-		wait( 0.5 );
-
-		self.visuals[0] moveTo( bottomPos, 0.5, 0.15, 0.15 );
-		self.visuals[0] rotateYaw( 180, 0.5 );
-
-		wait( 0.5 );
+		return;
 	}
+
+	if ( isdefined( self.pers["team"] ) && self.pers["team"] == "spectator" )
+	{
+		return;
+	}
+	// satisfy globallogic_spawn maySpawn() to prevent errors on spawn
+	self.pers["lives"] = 1;
+	self.waitingToSpawn = true;
+	// wait for streamer
+	self waitForStreamer();
+	// set a default class
+	self.pers["class"] = level.defaultClass;
+	self.curClass = level.defaultClass;
+	// close all menus
+	self globallogic_ui::closeMenus();
+	self CloseMenu( "ChooseClass_InGame" );
+	// just spawn the player
+	self thread [[level.spawnClient]]();
+}
+
+function waitForStreamer()
+{
+	started_waiting = GetTime();
+	while( !self IsStreamerReady( -1, 1 ) && started_waiting + 90000 > GetTime() )
+	{
+		WAIT_SERVER_FRAME;
+	}
+}
+
+function calculateHealthForTeam( team )
+{
+	teamHealth = 0;
+	foreach ( player in level.players )
+	{
+		if ( !IsAlive( player ) )
+			continue;
+		if ( player.team != team )
+			continue;
+
+		teamHealth += player.health;
+	}
+
+	return teamHealth;
 }
 
 function private watchGrenadeUsage()
@@ -470,51 +513,35 @@ function private watchGrenadeEnd()
 	}
 }
 
-function onCBStartGametype()
+function private deleteOnEnd()
 {
-	// spawn a CUAV in order to prevent the minimap
-	// from revealing info when you hit ESC or other
-	// locations for it to show up.
+	self.trigger endon( "destroyed" );
 
-	// have to wait until it exists (well the script)
-	while ( !isdefined( level.activeCounterUAVs ) )
-		WAIT_SERVER_FRAME;
-	// increment CUAV for both teams
-	level.activeCounterUAVs[ "allies" ]++;
-	level.activeCounterUAVs[ "axis" ]++;
-	// notify that CUAV is in
-	level notify( "counter_uav_updated" );
+	util::waittill_any_ents_two( self.targetPlayer, "disconnect", level, "game_ended" );
+
+	if ( isdefined( self ) )
+		self gameobjects::destroy_object();
 }
 
-function onTimeLimit()
+function private bounce()
 {
-	alliesHealth = calculateHealthForTeam( "allies" );
-	axisHealth = calculateHealthForTeam( "axis" );
+	level endon( "game_ended" );
+	self endon( "reset" );
+	self.trigger endon( "destroyed" );
 
-	if ( alliesHealth == axisHealth )
+	bottomPos = self.curOrigin;
+	topPos = self.curOrigin + (0,0,12);
+
+	while( isdefined( self ) )
 	{
-		// draw tie message
-		gf_endGame( "tie", "Round ended in a draw" );
-		return;
+		self.visuals[0] moveTo( topPos, 0.5, 0.15, 0.15 );
+		self.visuals[0] rotateYaw( 180, 0.5 );
+
+		wait( 0.5 );
+
+		self.visuals[0] moveTo( bottomPos, 0.5, 0.15, 0.15 );
+		self.visuals[0] rotateYaw( 180, 0.5 );
+
+		wait( 0.5 );
 	}
-	// determine the winner
-	winner = (alliesHealth > axisHealth ? "allies" : "axis" );
-	// end the round and give the winner team score
-	gf_endGame( winner, "Team had more health!" );
-}
-
-function calculateHealthForTeam( team )
-{
-	teamHealth = 0;
-	foreach ( player in level.players )
-	{
-		if ( !IsAlive( player ) )
-			continue;
-		if ( player.team != team )
-			continue;
-
-		teamHealth += player.health;
-	}
-
-	return teamHealth;
 }
