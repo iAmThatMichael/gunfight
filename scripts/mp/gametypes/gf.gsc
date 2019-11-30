@@ -20,6 +20,8 @@
 #using scripts\mp\gametypes\_spawnlogic;
 #using scripts\mp\gametypes\dom;
 
+#using scripts\mp\teams\_teams;
+
 #insert scripts\shared\shared.gsh;
 
 #precache( "string", "MOD_OBJECTIVES_GUN" );
@@ -218,6 +220,7 @@ function gunfightFlagUpdate()
 			flagObj gameobjects::disable_object();
 			flagObj gameobjects::allow_use( "none" );
 			flagObj gameobjects::set_model_visibility( false );
+			flagObj.visuals[0] SetModel( teams::get_flag_model( "neutral" ) );
 			level.gunfightFlag = flagObj;
 		}
 	}
@@ -242,7 +245,7 @@ function watchForFlagCap()
 
 	gf_endGame( player.team, &"MP_DOM_YOUR_FLAG_WAS_CAPTURED" );
 }
-
+// TODO: maybe add sound effect for ticks?
 function gunfightTimer()
 {
 	level endon( "game_ended" );
