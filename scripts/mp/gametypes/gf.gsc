@@ -18,6 +18,7 @@
 #using scripts\mp\gametypes\_globallogic_utils;
 #using scripts\mp\gametypes\_spawning;
 #using scripts\mp\gametypes\_spawnlogic;
+#using scripts\mp\gametypes\dom;
 
 #insert scripts\shared\shared.gsh;
 
@@ -25,6 +26,31 @@
 #precache( "string", "MOD_OBJECTIVES_GUN_SCORE" );
 #precache( "string", "MOD_OBJECTIVES_GUN_HINT" );
 #precache( "xmodel", "p7_dogtags_enemy" );
+
+#precache( "string", "OBJECTIVES_DOM" );
+#precache( "string", "OBJECTIVES_DOM_SCORE" );
+#precache( "string", "OBJECTIVES_DOM_HINT" );
+#precache( "string", "MP_CAPTURING_FLAG" );
+#precache( "string", "MP_LOSING_FLAG" );
+#precache( "string", "MP_DOM_YOUR_FLAG_WAS_CAPTURED" );
+#precache( "string", "MP_DOM_ENEMY_FLAG_CAPTURED" );
+#precache( "string", "MP_DOM_NEUTRAL_FLAG_CAPTURED" );
+#precache( "string", "MP_ENEMY_FLAG_CAPTURED_BY" );
+#precache( "string", "MP_NEUTRAL_FLAG_CAPTURED_BY" );
+#precache( "string", "MP_FRIENDLY_FLAG_CAPTURED_BY" );
+#precache( "string", "MP_DOM_FLAG_A_CAPTURED_BY" );
+#precache( "string", "MP_DOM_FLAG_B_CAPTURED_BY" );
+#precache( "string", "MP_DOM_FLAG_C_CAPTURED_BY" );
+#precache( "string", "MP_DOM_FLAG_D_CAPTURED_BY" );
+#precache( "string", "MP_DOM_FLAG_E_CAPTURED_BY" );
+#precache( "fx", "ui/fx_ui_flagbase_blue" );
+#precache( "fx", "ui/fx_ui_flagbase_orng" );
+#precache( "fx", "ui/fx_ui_flagbase_wht" );
+#precache( "objective", "dom_a" );
+#precache( "objective", "dom_b" );
+#precache( "objective", "dom_c" );
+
+#define DIALOG_THROTTLE	10000
 
 // TODO: Overtime Flag
 // on round time end, compare health give the W
@@ -43,6 +69,7 @@ function main()
 	globallogic::registerFriendlyFireDelay( level.gameType, 15, 0, 1440 );
 
 	gameobjects::register_allowed_gameobject( level.gameType );
+	gameobjects::register_allowed_gameobject( "dom" ); // need dom flags
 
 	globallogic_audio::set_leader_gametype_dialog( undefined, undefined, "gameBoost", "gameBoost" );
 
@@ -77,6 +104,39 @@ function main()
 	// DVars
 	// disable deathicons - if respawn is enabled
 	SetDvar( "ui_hud_showdeathicons", !level.respawnMechanic );
+	// DOM stuff
+	game["dialog"]["securing_a"] = "domFriendlySecuringA";
+	game["dialog"]["securing_b"] = "domFriendlySecuringB";
+	game["dialog"]["securing_c"] = "domFriendlySecuringC";
+
+	game["dialog"]["secured_a"] = "domFriendlySecuredA";
+	game["dialog"]["secured_b"] = "domFriendlySecuredB";
+	game["dialog"]["secured_c"] = "domFriendlySecuredC";
+
+	game["dialog"]["secured_all"] = "domFriendlySecuredAll";
+
+	game["dialog"]["losing_a"] = "domEnemySecuringA";
+	game["dialog"]["losing_b"] = "domEnemySecuringB";
+	game["dialog"]["losing_c"] = "domEnemySecuringC";
+
+	game["dialog"]["lost_a"] = "domEnemySecuredA";
+	game["dialog"]["lost_b"] = "domEnemySecuredB";
+	game["dialog"]["lost_c"] = "domEnemySecuredC";
+
+	game["dialog"]["lost_all"] = "domEnemySecuredAll";
+
+	game["dialog"]["enemy_a"] = "domEnemyHasA";
+	game["dialog"]["enemy_b"] = "domEnemyHasB";
+	game["dialog"]["enemy_c"] = "domEnemyHasC";
+
+	game["dialogTime"] = [];
+	game["dialogTime"]["securing_a"] = 0;
+	game["dialogTime"]["securing_b"] = 0;
+	game["dialogTime"]["securing_c"] = 0;
+	game["dialogTime"]["losing_a"] = 0;
+	game["dialogTime"]["losing_b"] = 0;
+	game["dialogTime"]["losing_c"] = 0;
+
 }
 
 function onStartGameType()
@@ -131,6 +191,9 @@ function onStartGameType()
 	{
 		level.spawn_start[ team ] =  spawnlogic::get_spawnpoint_array( spawning::getTDMStartSpawnName(team) );
 	}
+	// need this for DOM script
+	level.startPos["allies"] = level.spawn_start[ "allies" ][0].origin;
+	level.startPos["axis"] = level.spawn_start[ "axis" ][0].origin;
 
 	level.mapCenter = math::find_box_center( level.spawnMins, level.spawnMaxs );
 	setMapCenter( level.mapCenter );
@@ -138,7 +201,10 @@ function onStartGameType()
 	spawnpoint = spawnlogic::get_random_intermission_point();
 	setDemoIntermissionPoint( spawnpoint.origin, spawnpoint.angles );
 
-	//thread gunfightFlagSpawn();
+	// might be late to create all this shit so just create onStartGametype
+	dom::updateGametypeDvars();
+	thread dom::domFlags();
+	gunfightFlagUpdate();
 }
 
 function onPlayerConnect()
@@ -165,6 +231,43 @@ function onPlayerSpawned()
 	self thread watchGrenadeUsage();
 	// hide compass
 	self killstreaks::hide_compass();
+}
+
+function gunfightFlagUpdate()
+{
+	foreach ( flagObj in level.domFlags )
+	{
+		if ( flagObj.label != "_b" )
+		{
+			flagObj gameobjects::destroy_object();
+		}
+		else
+		{
+			flagObj gameobjects::disable_object();
+			flagObj gameobjects::allow_use( "none" );
+			flagObj gameobjects::set_model_visibility( false );
+			level.gunfightFlag = flagObj;
+		}
+	}
+}
+
+function gunfightSpawnFlag()
+{
+	// TODO: fix the model/FX
+	level.gunfightFlag gameobjects::enable_object();
+	level.gunfightFlag gameobjects::allow_use( "any" );
+	level.gunfightFlag gameobjects::set_model_visibility( true );
+	level.gunfightFlag gameobjects::set_use_time( 2.5 );
+	level thread watchForFlagCap();
+}
+
+function watchForFlagCap()
+{
+	level endon( "game_ended" );
+
+	level waittill( "b_flag_captured", player );
+
+	gf_endGame( player.team, &"MP_DOM_YOUR_FLAG_WAS_CAPTURED" );
 }
 
 function gunfightTimer()
@@ -256,6 +359,7 @@ function onTimeLimit()
 {
 	if ( !level.timeLimitOverride )
 	{
+		gunfightSpawnFlag();
 		thread gunfightTimer();
 		return;
 	}
