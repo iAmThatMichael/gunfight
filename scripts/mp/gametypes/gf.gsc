@@ -5,7 +5,9 @@
 #using scripts\shared\player_shared;
 #using scripts\shared\util_shared;
 
-#insert scripts\shared\shared.gsh;
+#using scripts\mp\_util;
+
+#using scripts\mp\killstreaks\_killstreaks;
 
 #using scripts\mp\gametypes\_dogtags;
 #using scripts\mp\gametypes\_globallogic;
@@ -16,7 +18,7 @@
 #using scripts\mp\gametypes\_spawning;
 #using scripts\mp\gametypes\_spawnlogic;
 
-#using scripts\mp\_util;
+#insert scripts\shared\shared.gsh;
 
 #precache( "string", "MOD_OBJECTIVES_GUN" );
 #precache( "string", "MOD_OBJECTIVES_GUN_SCORE" );
@@ -63,9 +65,12 @@ function main()
 	level.onSpawnPlayer = &onSpawnPlayer;
 	//
 	level.onStartGameType = &onStartGameType;
+	//
+	level.onTimeLimit = &onTimeLimit;
 	// Callbacks
 	callback::on_connect( &onPlayerConnect );
 	callback::on_spawned( &onPlayerSpawned );
+	callback::on_start_gametype( &onCBStartGametype );
 	// DVars
 	SetDvar( "ui_hud_showdeathicons", "0" ); // disable deathicons
 }
@@ -93,7 +98,7 @@ function onStartGameType()
 	level.spawnMins = ( 0, 0, 0 );
 	level.spawnMaxs = ( 0, 0, 0 );
 
-	foreach( team in level.teams )
+	foreach ( team in level.teams )
 	{
 		util::setObjectiveText( team, &"MOD_OBJECTIVES_GUN" );
 		util::setObjectiveHintText( team, &"MOD_OBJECTIVES_GUN_HINT" );
@@ -118,7 +123,7 @@ function onStartGameType()
 	level.spawn_start = [];
 	level.alwaysUseStartSpawns = true;
 
-	foreach( team in level.teams )
+	foreach ( team in level.teams )
 	{
 		level.spawn_start[ team ] =  spawnlogic::get_spawnpoint_array( spawning::getTDMStartSpawnName(team) );
 	}
@@ -129,12 +134,14 @@ function onStartGameType()
 	spawnpoint = spawnlogic::get_random_intermission_point();
 	setDemoIntermissionPoint( spawnpoint.origin, spawnpoint.angles );
 
-	dogtags::init();
+	//dogtags::init();
 }
 
 function onPlayerConnect()
 {
 	self thread loadPlayer();
+	// hide compass
+	self killstreaks::hide_compass();
 }
 
 function onSpawnPlayer(predictedSpawn)
@@ -148,9 +155,12 @@ function onPlayerSpawned()
 	self endon( "disconnect" );
 
 	// Freeze bots for development
-	//if ( self IsTestClient() )
-	//	self FreezeControlsAllowLook( true );
+	if ( GetDvarInt( "scr_gf_dev_stop_bots", 1 ) && self IsTestClient() )
+		self FreezeControlsAllowLook( true );
+	//
 	self thread watchGrenadeUsage();
+	// hide compass
+	self killstreaks::hide_compass();
 }
 
 function loadPlayer()
@@ -276,7 +286,8 @@ function getBetterTeam()
 
 function gf_endGame( winningTeam, endReasonText )
 {
-	if ( isdefined( winningTeam ) )
+	// if match ended in a tie don't give points
+	if ( isdefined( winningTeam ) && winningTeam != "tie" )
 		globallogic_score::giveTeamScoreForObjective_DelayPostProcessing( winningTeam, 1 );
 
 	thread globallogic::endGame( winningTeam, endReasonText );
@@ -285,7 +296,7 @@ function gf_endGame( winningTeam, endReasonText )
 function getPlayersInTeam( team, b_isAlive = false )
 {
 	players = [];
-	foreach( player in level.players )
+	foreach ( player in level.players )
 	{
 		if ( player.pers["team"] == team )
 		{
@@ -318,8 +329,7 @@ function createPlayerRespawn( attacker )
 {
 	player = self;
 	// save the weapondata
-	a_weapon_list = player GetWeaponsList();
-	foreach( weapon in player GetWeaponsList( true ) )
+	foreach ( weapon in player GetWeaponsList( true ) )
 	{
 		// grenades are dropped upon death, so we need to ignore the weapon if we were holding it
 		if ( self._throwingGrenade === weapon )
@@ -333,7 +343,7 @@ function createPlayerRespawn( attacker )
 	model SetModel( player GetFriendlyDogTagModel() );
 	model DontInterpolate();
 	// hide from enemy team(s)
-	foreach( team in level.teams )
+	foreach ( team in level.teams )
 		model HideFromTeam( team );
 	// only show to friendly team
 	model ShowToTeam( player.team );
@@ -355,7 +365,7 @@ function createPlayerRespawn( attacker )
 	obj gameobjects::set_owner_team( player.team );
 
 	// object - functionality
-	obj.onBeginUse = &on_begin_use_base;
+	//obj.onBeginUse = &on_begin_use_base;
 	obj.onUse = &on_use_base;
 	obj.targetPlayer = player;
 	//obj.onEndUse = &onEndUse;
@@ -375,7 +385,7 @@ function on_use_base( player )
 	self.targetPlayer.pers["lives"] = 1;
 	self.targetPlayer [[level.spawnClient]]();
 	// set the origin back to the deathpoint
-	self.targetPlayer SetOrigin( self.origin - (0,0,32));
+	self.targetPlayer SetOrigin( self.origin - (0,0,32) );
 	self.targetPlayer.health = 65;
 	self.targetPlayer.maxhealth = 65;
 	// wait a server frame to ensure player is back
@@ -458,4 +468,53 @@ function private watchGrenadeEnd()
 
 		self._throwingGrenade = level.weaponNone;
 	}
+}
+
+function onCBStartGametype()
+{
+	// spawn a CUAV in order to prevent the minimap
+	// from revealing info when you hit ESC or other
+	// locations for it to show up.
+
+	// have to wait until it exists (well the script)
+	while ( !isdefined( level.activeCounterUAVs ) )
+		WAIT_SERVER_FRAME;
+	// increment CUAV for both teams
+	level.activeCounterUAVs[ "allies" ]++;
+	level.activeCounterUAVs[ "axis" ]++;
+	// notify that CUAV is in
+	level notify( "counter_uav_updated" );
+}
+
+function onTimeLimit()
+{
+	alliesHealth = calculateHealthForTeam( "allies" );
+	axisHealth = calculateHealthForTeam( "axis" );
+
+	if ( alliesHealth == axisHealth )
+	{
+		// draw tie message
+		gf_endGame( "tie", "Round ended in a draw" );
+		return;
+	}
+	// determine the winner
+	winner = (alliesHealth > axisHealth ? "allies" : "axis" );
+	// end the round and give the winner team score
+	gf_endGame( winner, "Team had more health!" );
+}
+
+function calculateHealthForTeam( team )
+{
+	teamHealth = 0;
+	foreach ( player in level.players )
+	{
+		if ( !IsAlive( player ) )
+			continue;
+		if ( player.team != team )
+			continue;
+
+		teamHealth += player.health;
+	}
+
+	return teamHealth;
 }
