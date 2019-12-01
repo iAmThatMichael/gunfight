@@ -2,12 +2,17 @@
 >type,common
 
 #include "mp_mod.class"
-
-scriptparsetree,scripts/mp/gametypes/gf.gsc
+// DEBUG
+//scriptparsetree,scripts/mp/gametypes/_globallogic_player.gsc
+//scriptparsetree,scripts/mp/gametypes/_spawning.gsc
+// Gametype
 scriptparsetree,scripts/mp/gametypes/gf.csc
-
+scriptparsetree,scripts/mp/gametypes/gf.gsc
+// Bot
 scriptparsetree,scripts/mp/bots/_bot.gsc
-
+// Rawfile
 rawfile,gamedata/gamesettings/mp/gamesettings_gf.cfg
-
+// Stringtable
+stringtable,gamedata/tables/mp/gf_weapons.csv
+// Localization
 localize,mod

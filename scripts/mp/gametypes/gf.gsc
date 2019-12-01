@@ -30,6 +30,16 @@
 #precache( "string", "MOD_OBJECTIVES_GUN_HINT" );
 #precache( "xmodel", "p7_dogtags_enemy" );
 
+#define WEAPON_TABLE 		"gamedata/tables/mp/gf_weapons.csv"
+#define WT_COL_SLOT 		0
+#define WT_COL_PRIMARY 		1
+#define WT_COL_SECONDARY 	2
+#define WT_COL_LETHAL 		3
+#define WT_COL_TACTICAL 	4
+#define WT_COL_PERKS 		5
+#define WT_COL_REFERENCE 	6
+#define WT_MAX_ITEMS 		256
+
 function main()
 {
 	globallogic::init();
@@ -57,7 +67,7 @@ function main()
 	level.teamBased = true;
 	level.timeLimitOverride = false;
 	//
-	//level.giveCustomLoadout = &giveCustomLoadout;
+	level.giveCustomLoadout = &giveCustomLoadout;
 	//
 	level.onDeadEvent = &onDeadEvent;
 	//
@@ -157,6 +167,9 @@ function onStartGameType()
 	level.spawn_start = [];
 	level.spawn_start["axis"] = spawnlogic::get_spawnpoint_array( "mp_sd_spawn_defender" );
 	level.spawn_start["allies"] = spawnlogic::get_spawnpoint_array( "mp_sd_spawn_attacker" );
+	// use startspawns to prevent any issues
+	level.useStartSpawns = true;
+	level.alwaysUseStartSpawns = true;
 	// need this for DOM script -- on round switch this won't do anything right?
 	level.startPos["allies"] = level.spawn_start[ "allies" ][0].origin;
 	level.startPos["axis"] = level.spawn_start[ "axis" ][0].origin;
@@ -169,7 +182,9 @@ function onStartGameType()
 	// init DOM stuff - vars and flags
 	dom::updateGametypeDvars();
 	thread dom::domFlags();
+	// GF stuff
 	gunfightFlagUpdate();
+	gunfightPickClass();
 }
 
 function onPlayerConnect()
@@ -207,6 +222,94 @@ function onPlayerSpawned()
 	self thread watchGrenadeUsage();
 	// hide compass
 	self killstreaks::hide_compass();
+}
+
+function giveCustomLoadout()
+{
+	// copy the class
+	weaponClass = level.gunfightClass;
+	// DEBUG
+	//IPrintLn(sprintf("Primary: {0} | Secondary: {1} | Lethal: {2} | Tactical: {3} | Perks: {4} | Reference: {5}", weaponClass["primary"], weaponClass["secondary"], weaponClass["lethal"], weaponClass["tactical"], weaponClass["perks"], weaponClass["reference"]));
+	// take all weapons & perks
+	self TakeAllWeapons();
+	self ClearPerks();
+	// rename stuff
+	primary = GetWeapon( weaponClass["primary"] );
+	secondary = GetWeapon( weaponClass["secondary"] );
+	lethal = GetWeapon( weaponClass["lethal"] );
+	tactical = GetWeapon( weaponClass["tactical"] );
+	// give primary & secondary, set primary as spawn
+	self GiveWeapon( primary );
+	self GiveWeapon( secondary );
+	self SetSpawnWeapon( primary );
+	// lethal
+	lethalCount = ( lethal != level.nullPrimaryOffhand ? lethal.startAmmo : 0 );
+	self GiveWeapon( lethal );
+	self SetWeaponAmmoClip( lethal, lethalCount );
+	self SwitchToOffhand( lethal );
+	self.grenadeTypePrimary = lethal;
+	self.grenadeTypePrimaryCount = lethalCount;
+	// tactical
+	tacticalCount = ( tactical != level.nullSecondaryOffhand ? tactical.startAmmo : 0 );
+	self GiveWeapon( tactical );
+	self SetWeaponAmmoClip( tactical, tacticalCount );
+	self SwitchToOffhand( tactical );
+	self.grenadeTypeSecondary = tactical;
+	self.grenadeTypeSecondaryCount = tacticalCount;
+	// remove extra movement
+	self AllowDoubleJump(false);
+	self AllowSlide(false);
+	self AllowWallRun(false);
+	// return the primary
+	return primary;
+}
+
+function gunfightPickClass()
+{
+	tiers = [];
+	ARRAY_ADD( tiers, "random" );
+	//ARRAY_ADD( tiers, "random_pistol" );
+	//ARRAY_ADD( tiers, "random_smg" );
+	//ARRAY_ADD( tiers, "random_assault");
+	//ARRAY_ADD( tiers, "random_sniper");
+	//ARRAY_ADD( tiers, "random_lmg");
+	// generate all classes from a random tier
+	gunfightGenerateClasses( array::random( tiers ) );
+	// from the classes pick a class
+	weaponClass = array::random( level.gunfightWeaponTable );
+	// assign the class
+	level.gunfightClass = weaponClass;
+}
+
+function gunfightGenerateClasses( tblReference )
+{
+	level.gunfightWeaponTable = [];
+
+	for( i = 0; i < TableLookupRowCount( WEAPON_TABLE ); i++ )
+	{
+		itemRow = TableLookupRowNum( WEAPON_TABLE, WT_COL_SLOT, i );
+
+		if ( itemRow > -1 )
+		{
+			reference = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_REFERENCE );
+			// strtok(?)
+			if ( tblReference == reference )
+			{
+				primary = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PRIMARY );
+				secondary = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_SECONDARY );
+				lethal = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_LETHAL );
+				tactical = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_TACTICAL );
+				perks = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PERKS );
+
+				level.gunfightWeaponTable[i]["primary"] = primary;
+				level.gunfightWeaponTable[i]["secondary"] = secondary;
+				level.gunfightWeaponTable[i]["lethal"] = lethal;
+				level.gunfightWeaponTable[i]["tactical"] = tactical;
+				level.gunfightWeaponTable[i]["perks"] = perks;
+				level.gunfightWeaponTable[i]["reference"] = reference;
+			}
+		}
+	}
 }
 
 function gunfightFlagUpdate()
@@ -269,7 +372,7 @@ function gunfightTimer()
 	{
 		// returns as milliseconds, so divide by 1000 for seconds
 		timeRemaining = (level._timeLimit - GetTime());
-		// if time is less than or equal to 0 AND we have made a flag, end the round
+		// time's up so call timelimit
 		if ( timeRemaining <= 0 )
 		{
 			[[level.onTimeLimit]]();
@@ -464,6 +567,8 @@ function loadPlayer()
 	// satisfy globallogic_spawn maySpawn() to prevent errors on spawn
 	self.pers["lives"] = 1;
 	self.waitingToSpawn = true;
+	// something to satisfy matchRecordLogAdditionalDeathInfo 5th parameter (_globallogic_player)
+	self.class_num = 0;
 	// wait for streamer
 	self waitForStreamer();
 	// set a default class
