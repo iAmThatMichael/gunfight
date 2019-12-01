@@ -64,8 +64,9 @@ function main()
 	globallogic::setvisiblescoreboardcolumns( "score", "kills", "deaths", "kdratio", "captures" );
 	//
 	level.endGameOnScoreLimit = false;
+	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
 	level.overrideTeamScore = true;
-	level.respawnMechanic = GetDvarInt("scr_gf_respawn", 0);
+	level.respawnMechanic = GetDvarInt( "scr_gf_respawn", 0 );
 	level.teamBased = true;
 	level.timeLimitOverride = false;
 	//
@@ -76,7 +77,7 @@ function main()
 	level.onPlayerDamage = &onPlayerDamage;
 	level.onPlayerKilled = &onPlayerKilled;
 	//
-	level.onRoundSwitch = &sd::onRoundSwitch;
+	level.onRoundSwitch = &onRoundSwitch;
 	//
 	level.onSpawnPlayer = &onSpawnPlayer;
 	//
@@ -130,7 +131,9 @@ function onStartGameType()
 	setClientNameMode("manual_change");
 
 	if ( !isdefined( game["switchedsides"] ) )
+	{
 		game["switchedsides"] = false;
+	}
 
 	if ( game["switchedsides"] )
 	{
@@ -173,8 +176,8 @@ function onStartGameType()
 	level.useStartSpawns = true;
 	level.alwaysUseStartSpawns = true;
 	// need this for DOM script -- on round switch this won't do anything right?
-	level.startPos["allies"] = level.spawn_start[ "allies" ][0].origin;
-	level.startPos["axis"] = level.spawn_start[ "axis" ][0].origin;
+	level.startPos["allies"] = level.spawn_start["allies"][0].origin;
+	level.startPos["axis"] = level.spawn_start["axis"][0].origin;
 	// map center
 	level.mapCenter = math::find_box_center( level.spawnMins, level.spawnMaxs );
 	SetMapCenter( level.mapCenter );
@@ -201,10 +204,7 @@ function onPlayerDisconnect()
 	// TODO: update LUI models so amount of people and health
 	// also end game if one side DC's
 	// assume that there's no switching teams
-	if ( getPlayersInTeam( self.team ).size == 0 )
-	{
-		[[level.onForfeit]]();
-	}
+	globallogic::checkForForfeit();
 }
 
 function onSpawnPlayer(predictedSpawn)
@@ -230,12 +230,10 @@ function giveCustomLoadout()
 {
 	// copy the class
 	weaponClass = level.gunfightClass;
-	// DEBUG
-	//IPrintLn(sprintf("Primary: {0} | Secondary: {1} | Lethal: {2} | Tactical: {3} | Perks: {4} | Reference: {5}", weaponClass["primary"], weaponClass["secondary"], weaponClass["lethal"], weaponClass["tactical"], weaponClass["perks"], weaponClass["reference"]));
 	// take all weapons & perks
 	self TakeAllWeapons();
 	self ClearPerks();
-	// weapon attachments
+	// weapon attachments need to be a different getweapon
 	if ( isdefined( weaponClass["primaryAttachments"] ) )
 	{
 		primary = GetWeapon( weaponClass["primary"], weaponClass["primaryAttachments"] );
@@ -244,6 +242,7 @@ function giveCustomLoadout()
 	{
 		primary = GetWeapon( weaponClass["primary"] );
 	}
+	// weapon attachments need to be a different getweapon
 	if ( isdefined( weaponClass["secondaryAttachments"] ) )
 	{
 		secondary = GetWeapon( weaponClass["secondary"], weaponClass["secondaryAttachments"] );
@@ -252,37 +251,40 @@ function giveCustomLoadout()
 	{
 		secondary = GetWeapon( weaponClass["secondary"] );
 	}
-	// give equipment
+	// get equipment
 	lethal = GetWeapon( weaponClass["lethal"] );
 	tactical = GetWeapon( weaponClass["tactical"] );
-	// give primary & secondary, set primary as spawn
+	// give primary & secondary, set primary as spawn weapon
 	self GiveWeapon( primary );
 	self GiveWeapon( secondary );
 	self SetSpawnWeapon( primary );
-	// lethal
+	// lethal grenade information
 	lethalCount = ( lethal != level.nullPrimaryOffhand ? lethal.startAmmo : 0 );
 	self GiveWeapon( lethal );
 	self SetWeaponAmmoClip( lethal, lethalCount );
 	self SwitchToOffhand( lethal );
 	self.grenadeTypePrimary = lethal;
 	self.grenadeTypePrimaryCount = lethalCount;
-	// tactical
+	// tactical grenade information
 	tacticalCount = ( tactical != level.nullSecondaryOffhand ? tactical.startAmmo : 0 );
 	self GiveWeapon( tactical );
 	self SetWeaponAmmoClip( tactical, tacticalCount );
 	self SwitchToOffhand( tactical );
 	self.grenadeTypeSecondary = tactical;
 	self.grenadeTypeSecondaryCount = tacticalCount;
-	// remove extra movement
+	// disable extra movement
 	self AllowDoubleJump(false);
 	self AllowSlide(false);
 	self AllowWallRun(false);
-	// return the primary
+	// return the primary weapon
 	return primary;
 }
 
 function gunfightPickClass()
 {
+	// get updated dvar
+	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
+	//
 	tiers = [];
 	ARRAY_ADD( tiers, "random" );
 	// TODO: possibly add specific playlist-style only tiers? i.e. shotguns classes only
@@ -293,8 +295,14 @@ function gunfightPickClass()
 	//ARRAY_ADD( tiers, "random_lmg");
 	// generate all classes from a random tier
 	gunfightGenerateClasses( array::random( tiers ) );
-	// from the classes pick a class
-	weaponClass = array::random( level.gunfightWeaponTable );
+	// if there's no class pick a random one
+	if ( level.gunfightClassIdx == -1 )
+	{
+		weaponClass = array::random( level.gunfightWeaponTable );
+		SetDvar( "scr_gf_class_idx", weaponClass["index"] );
+	}
+	else
+		weaponClass = level.gunfightWeaponTable[ level.gunfightClassIdx ];
 	// assign the class
 	level.gunfightClass = weaponClass;
 }
@@ -321,6 +329,7 @@ function gunfightGenerateClasses( tblReference )
 				primaryAttachments = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PRIMARY_ATTACHMENTS );
 				secondaryAttachments = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_SECONDARY_ATTACHMENTS );
 				// --
+				level.gunfightWeaponTable[i]["index"] = itemRow;
 				level.gunfightWeaponTable[i]["primary"] = primary;
 				level.gunfightWeaponTable[i]["secondary"] = secondary;
 				level.gunfightWeaponTable[i]["lethal"] = lethal;
@@ -354,7 +363,7 @@ function gunfightFlagUpdate()
 		}
 		else
 		{
-			// B flag disable
+			// disable B flag and update the model
 			flagObj gameobjects::disable_object();
 			flagObj gameobjects::allow_use( "none" );
 			flagObj gameobjects::set_model_visibility( false );
@@ -366,7 +375,6 @@ function gunfightFlagUpdate()
 
 function gunfightSpawnFlag()
 {
-	// TODO: fix the model/FX, research to see if timer gets pasued on flag touch
 	// show the B flag and monitor for flag-cap
 	level.gunfightFlag gameobjects::enable_object();
 	level.gunfightFlag gameobjects::allow_use( "any" );
@@ -438,13 +446,23 @@ function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, v
 	if ( level.respawnMechanic )
 	{
 		should_spawn_tags = self dogtags::should_spawn_tags(eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration);
-
 		// we should spawn tags if one the previous statements were true and we may not spawn
 		should_spawn_tags = should_spawn_tags && !globallogic_spawn::maySpawn();
-
+		//
 		if ( should_spawn_tags && getPlayersInTeam( self.team, true ).size > 0 )
 			self thread createPlayerRespawn( attacker );
 	}
+}
+
+function onRoundSwitch()
+{
+	if ( !isdefined( game["switchedsides"] ) )
+		game["switchedsides"] = false;
+
+	level.halftimeType = "halftime";
+	game["switchedsides"] = !game["switchedsides"];
+	// reset the class dvar
+	SetDvar( "scr_gf_class_idx", -1 );
 }
 
 function onTimeLimit()
@@ -473,14 +491,14 @@ function onTimeLimit()
 
 function gf_endGame( winningTeam, endReasonText )
 {
-	// if match ended in a tie don't give points
+	// if match ended in a tie don't give points, also should I use delay in case players die before 15 sec
 	if ( isdefined( winningTeam ) && winningTeam != "tie" )
 		globallogic_score::giveTeamScoreForObjective_DelayPostProcessing( winningTeam, 1 );
 
 	thread globallogic::endGame( winningTeam, endReasonText );
 }
 
-function getPlayersInTeam( team, b_isAlive = false )
+function getPlayersInTeam( team, b_seeIfAlive = false )
 {
 	players = [];
 	foreach ( player in level.players )
@@ -488,7 +506,7 @@ function getPlayersInTeam( team, b_isAlive = false )
 		if ( player.pers["team"] == team )
 		{
 			// if we want to check if they're alive
-			if ( b_isAlive )
+			if ( b_seeIfAlive )
 			{
 				if ( IsAlive( player ) )
 					array::add( players, player );
@@ -512,7 +530,6 @@ function createPlayerRespawn( attacker )
 
 		ARRAY_ADD( player._weapons, player::get_weapondata( weapon ) );
 	}
-
 	// model
 	model = Spawn( "script_model", player.origin );
 	model SetModel( player GetFriendlyDogTagModel() );
@@ -523,13 +540,11 @@ function createPlayerRespawn( attacker )
 	// only show to friendly team
 	model ShowToTeam( player.team );
 	visuals = Array( model );
-
 	// trigger
 	trigger = Spawn( "trigger_radius_use", player.origin + (0,0,16), 0, 32, 32 );
 	trigger SetCursorHint( "HINT_NOICON" );
 	trigger TriggerIgnoreTeam();
 	trigger UseTriggerRequireLookAt();
-
 	// object - base
 	obj = gameobjects::create_use_object( player.team, trigger, visuals, (0,0,0), IString( "headicon_dead" ) );
 	obj gameobjects::set_use_time( 5 );
@@ -538,15 +553,13 @@ function createPlayerRespawn( attacker )
 	obj gameobjects::allow_use( "friendly" );
 	obj gameobjects::set_visible_team( "friendly" );
 	obj gameobjects::set_owner_team( player.team );
-
 	// object - functionality
 	obj.onUse = &onTagUse;
 	obj.targetPlayer = player;
-
 	// makes the dogtags bounce
 	obj thread bounce();
 	// delete the gameobject when round/match ends or when player DC's
-	obj thread deleteOnEnd(); // TODO: waittill game ends delete the tags
+	obj thread deleteOnEnd();
 }
 
 function onTagUse( player )
