@@ -283,7 +283,7 @@ function giveCustomLoadout()
 function gunfightPickClass()
 {
 	// get updated dvar
-	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
+	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx" );
 	//
 	tiers = [];
 	ARRAY_ADD( tiers, "random" );
@@ -318,7 +318,8 @@ function gunfightGenerateClasses( tblReference )
 		if ( itemRow > -1 )
 		{
 			reference = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_REFERENCE );
-			// strtok(?)
+			// strtok reference for more options?
+			// TODO: something about classes I need to remove indexes that are used or avoid them rather possible randomize and store as a dvar (a numbered list?)
 			if ( tblReference == reference )
 			{
 				primary = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PRIMARY );
@@ -329,7 +330,7 @@ function gunfightGenerateClasses( tblReference )
 				primaryAttachments = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PRIMARY_ATTACHMENTS );
 				secondaryAttachments = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_SECONDARY_ATTACHMENTS );
 				// --
-				level.gunfightWeaponTable[i]["index"] = itemRow;
+				level.gunfightWeaponTable[i]["index"] = itemRow - 1;
 				level.gunfightWeaponTable[i]["primary"] = primary;
 				level.gunfightWeaponTable[i]["secondary"] = secondary;
 				level.gunfightWeaponTable[i]["lethal"] = lethal;
@@ -347,6 +348,7 @@ function gunfightGenerateClasses( tblReference )
 					secondaryAttachments = StrTok( secondaryAttachments, "+" );
 					level.gunfightWeaponTable[i]["secondaryAttachments"] = secondaryAttachments;
 				}
+				IPrintLnBold( sprintf( "IDX: {0} | Primary: {1} | Secondary: {2} | Lethal: {3} | Tactical: {4} | Perks: {5} | Reference: {6} | ARRAY IDX: {7}", itemRow - 1, primary, secondary, lethal, tactical, perks, reference, i ) );
 			}
 		}
 	}
@@ -417,7 +419,7 @@ function gunfightTimer()
 			[[level.onTimeLimit]]();
 		}
 
-		WAIT_SERVER_FRAME;
+		wait( 0.5 ); // wait half a second rather than server frame
 	}
 }
 
@@ -611,7 +613,7 @@ function loadPlayer()
 	// satisfy globallogic_spawn maySpawn() to prevent errors on spawn
 	self.pers["lives"] = 1;
 	self.waitingToSpawn = true;
-	// something to satisfy matchRecordLogAdditionalDeathInfo 5th parameter (_globallogic_player)
+	// satisfy matchRecordLogAdditionalDeathInfo 5th parameter (_globallogic_player)
 	self.class_num = 0;
 	// wait for streamer
 	self waitForStreamer();
