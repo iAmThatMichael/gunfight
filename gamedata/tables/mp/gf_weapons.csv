@@ -1,3 +1,7 @@
-slot,primary,secondary,lethal,tactical,perk,reference
-0,ar_standard,pistol_standard,null_offhand_primary,null_offhand_secondary,,random
-1,shotgun_pump,pistol_fullauto,sticky_grenade,concussion_grenade,,random
+slot,primary,secondary,lethal,tactical,perk,reference,primaryAttachments,secondaryAttachments
+0,ar_standard,pistol_standard,null_offhand_primary,null_offhand_secondary,,random,reflex,
+1,shotgun_pump,pistol_fullauto,sticky_grenade,concussion_grenade,,random,reflex,
+2,pistol_m1911,bare_hands,hatchet,concussion_grenade,,random,suppressed+extclip+extbarrel,
+3,sniper_powerbolt,pistol_m1911,satchel_charge,trophy_system,,random,swayreduc+rf,extclip+extbarrel
+4,smg_ak74u,knife_ballistic,null_offhand_primary,null_offhand_secondary,,random,steadyaim+grip+stalker,
+5,melee_butterfly,bare_hands,hatchet,willy_pete,,random,,

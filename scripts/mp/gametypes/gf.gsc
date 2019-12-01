@@ -38,6 +38,8 @@
 #define WT_COL_TACTICAL 	4
 #define WT_COL_PERKS 		5
 #define WT_COL_REFERENCE 	6
+#define WT_COL_PRIMARY_ATTACHMENTS 		7
+#define WT_COL_SECONDARY_ATTACHMENTS	8
 #define WT_MAX_ITEMS 		256
 
 function main()
@@ -233,9 +235,24 @@ function giveCustomLoadout()
 	// take all weapons & perks
 	self TakeAllWeapons();
 	self ClearPerks();
-	// rename stuff
-	primary = GetWeapon( weaponClass["primary"] );
-	secondary = GetWeapon( weaponClass["secondary"] );
+	// weapon attachments
+	if ( isdefined( weaponClass["primaryAttachments"] ) )
+	{
+		primary = GetWeapon( weaponClass["primary"], weaponClass["primaryAttachments"] );
+	}
+	else
+	{
+		primary = GetWeapon( weaponClass["primary"] );
+	}
+	if ( isdefined( weaponClass["secondaryAttachments"] ) )
+	{
+		secondary = GetWeapon( weaponClass["secondary"], weaponClass["secondaryAttachments"] );
+	}
+	else
+	{
+		secondary = GetWeapon( weaponClass["secondary"] );
+	}
+	// give equipment
 	lethal = GetWeapon( weaponClass["lethal"] );
 	tactical = GetWeapon( weaponClass["tactical"] );
 	// give primary & secondary, set primary as spawn
@@ -268,6 +285,7 @@ function gunfightPickClass()
 {
 	tiers = [];
 	ARRAY_ADD( tiers, "random" );
+	// TODO: possibly add specific playlist-style only tiers? i.e. shotguns classes only
 	//ARRAY_ADD( tiers, "random_pistol" );
 	//ARRAY_ADD( tiers, "random_smg" );
 	//ARRAY_ADD( tiers, "random_assault");
@@ -300,13 +318,26 @@ function gunfightGenerateClasses( tblReference )
 				lethal = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_LETHAL );
 				tactical = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_TACTICAL );
 				perks = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PERKS );
-
+				primaryAttachments = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PRIMARY_ATTACHMENTS );
+				secondaryAttachments = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_SECONDARY_ATTACHMENTS );
+				// --
 				level.gunfightWeaponTable[i]["primary"] = primary;
 				level.gunfightWeaponTable[i]["secondary"] = secondary;
 				level.gunfightWeaponTable[i]["lethal"] = lethal;
 				level.gunfightWeaponTable[i]["tactical"] = tactical;
 				level.gunfightWeaponTable[i]["perks"] = perks;
 				level.gunfightWeaponTable[i]["reference"] = reference;
+				// --
+				if ( isdefined( primaryAttachments ) )
+				{
+					primaryAttachments = StrTok( primaryAttachments, "+" );
+					level.gunfightWeaponTable[i]["primaryAttachments"] = primaryAttachments;
+				}
+				if ( isdefined( secondaryAttachments ) )
+				{
+					secondaryAttachments = StrTok( secondaryAttachments, "+" );
+					level.gunfightWeaponTable[i]["secondaryAttachments"] = secondaryAttachments;
+				}
 			}
 		}
 	}
@@ -335,7 +366,7 @@ function gunfightFlagUpdate()
 
 function gunfightSpawnFlag()
 {
-	// TODO: fix the model/FX
+	// TODO: fix the model/FX, research to see if timer gets pasued on flag touch
 	// show the B flag and monitor for flag-cap
 	level.gunfightFlag gameobjects::enable_object();
 	level.gunfightFlag gameobjects::allow_use( "any" );
@@ -365,7 +396,7 @@ function gunfightTimer()
 	SetGameEndTime( timeLimit );
 	// assign new timelimit var, internal one keeps changing
 	level._timeLimit = timeLimit;
-	// don't think MW has a sound effect when timer is counting down
+	// don't think MW has a sound effect when flag timer is counting down
 	//level.bombTimer = timeLimit;
 	//thread globallogic_utils::playTickingSound( "mpl_sab_ui_suitcasebomb_timer" );
 	while ( game["state"] == "playing" )
