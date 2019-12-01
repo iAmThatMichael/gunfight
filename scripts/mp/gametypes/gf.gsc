@@ -19,6 +19,7 @@
 #using scripts\mp\gametypes\_spawning;
 #using scripts\mp\gametypes\_spawnlogic;
 #using scripts\mp\gametypes\dom;
+#using scripts\mp\gametypes\sd;
 
 #using scripts\mp\teams\_teams;
 
@@ -63,7 +64,7 @@ function main()
 	level.onPlayerDamage = &onPlayerDamage;
 	level.onPlayerKilled = &onPlayerKilled;
 	//
-	level.onRoundSwitch = &onRoundSwitch;
+	level.onRoundSwitch = &sd::onRoundSwitch;
 	//
 	level.onSpawnPlayer = &onSpawnPlayer;
 	//
@@ -72,6 +73,7 @@ function main()
 	level.onTimeLimit = &onTimeLimit;
 	// Callbacks
 	callback::on_connect( &onPlayerConnect );
+	callback::on_disconnect( &onPlayerDisconnect );
 	callback::on_spawned( &onPlayerSpawned );
 	callback::on_start_gametype( &onCBStartGametype );
 	// DVars
@@ -126,7 +128,7 @@ function onStartGameType()
 		game["defenders"] = oldAttackers;
 	}
 
-	level.displayRoundEndText = false;
+	level.displayRoundEndText = true;
 
 	// now that the game objects have been deleted place the influencers
 	spawning::create_map_placed_influencers();
@@ -147,32 +149,23 @@ function onStartGameType()
 		{
 			util::setObjectiveScoreText( team, &"MOD_OBJECTIVES_GUN_SCORE" );
 		}
-
-		spawnlogic::add_spawn_points( team, "mp_tdm_spawn" );
-
-
-		spawnlogic::place_spawn_points( spawning::getTDMStartSpawnName(team) );
 	}
-
-	spawning::updateAllSpawnPoints();
-
+	// use SD spawnpoints
+	spawnlogic::place_spawn_points( "mp_sd_spawn_attacker" );
+	spawnlogic::place_spawn_points( "mp_sd_spawn_defender" );
+	// use SD start spawnpoints
 	level.spawn_start = [];
-	level.alwaysUseStartSpawns = true;
-
-	foreach ( team in level.teams )
-	{
-		level.spawn_start[ team ] =  spawnlogic::get_spawnpoint_array( spawning::getTDMStartSpawnName(team) );
-	}
-	// need this for DOM script
+	level.spawn_start["axis"] = spawnlogic::get_spawnpoint_array( "mp_sd_spawn_defender" );
+	level.spawn_start["allies"] = spawnlogic::get_spawnpoint_array( "mp_sd_spawn_attacker" );
+	// need this for DOM script -- on round switch this won't do anything right?
 	level.startPos["allies"] = level.spawn_start[ "allies" ][0].origin;
 	level.startPos["axis"] = level.spawn_start[ "axis" ][0].origin;
-
+	// map center
 	level.mapCenter = math::find_box_center( level.spawnMins, level.spawnMaxs );
 	SetMapCenter( level.mapCenter );
-
+	// demo spawnpoint
 	spawnpoint = spawnlogic::get_random_intermission_point();
 	SetDemoIntermissionPoint( spawnpoint.origin, spawnpoint.angles );
-
 	// init DOM stuff - vars and flags
 	dom::updateGametypeDvars();
 	thread dom::domFlags();
@@ -184,6 +177,17 @@ function onPlayerConnect()
 	self thread loadPlayer();
 	// hide compass
 	self killstreaks::hide_compass();
+}
+
+function onPlayerDisconnect()
+{
+	// TODO: update LUI models so amount of people and health
+	// also end game if one side DC's
+	// assume that there's no switching teams
+	if ( getPlayersInTeam( self.team ).size == 0 )
+	{
+		[[level.onForfeit]]();
+	}
 }
 
 function onSpawnPlayer(predictedSpawn)
@@ -309,28 +313,6 @@ function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, v
 	}
 }
 
-function onRoundSwitch()
-{
-	if ( !isdefined( game["switchedsides"] ) )
-		game["switchedsides"] = false;
-
-	if ( game["teamScores"]["allies"] == level.scorelimit - 1 && game["teamScores"]["axis"] == level.scorelimit - 1 )
-	{
-		// overtime! team that's ahead in kills gets to defend.
-		aheadTeam = getBetterTeam();
-		if ( aheadTeam != game["defenders"] )
-		{
-			game["switchedsides"] = !game["switchedsides"];
-		}
-		level.halftimeType = "overtime";
-	}
-	else
-	{
-		level.halftimeType = "halftime";
-		game["switchedsides"] = !game["switchedsides"];
-	}
-}
-
 function onTimeLimit()
 {
 	if ( !level.timeLimitOverride )
@@ -355,44 +337,6 @@ function onTimeLimit()
 	gf_endGame( winner, "Team had more health!" );
 }
 
-function getBetterTeam()
-{
-	kills["allies"] = 0;
-	kills["axis"] = 0;
-	deaths["allies"] = 0;
-	deaths["axis"] = 0;
-
-	for ( i = 0; i < level.players.size; i++ )
-	{
-		player = level.players[i];
-		team = player.pers["team"];
-		if ( isdefined( team ) && (team == "allies" || team == "axis") )
-		{
-			kills[ team ] += player.kills;
-			deaths[ team ] += player.deaths;
-		}
-	}
-
-	if ( kills["allies"] > kills["axis"] )
-		return "allies";
-	else if ( kills["axis"] > kills["allies"] )
-		return "axis";
-
-	// same number of kills
-
-	if ( deaths["allies"] < deaths["axis"] )
-		return "allies";
-	else if ( deaths["axis"] < deaths["allies"] )
-		return "axis";
-
-	// same number of deaths
-
-	if ( randomint(2) == 0 )
-		return "allies";
-	return "axis";
-}
-
-
 function gf_endGame( winningTeam, endReasonText )
 {
 	// if match ended in a tie don't give points
@@ -409,9 +353,10 @@ function getPlayersInTeam( team, b_isAlive = false )
 	{
 		if ( player.pers["team"] == team )
 		{
+			// if we want to check if they're alive
 			if ( b_isAlive )
 			{
-				if ( b_isAlive == IsAlive( player ) )
+				if ( IsAlive( player ) )
 					array::add( players, player );
 			}
 			else
@@ -489,10 +434,7 @@ function onTagUse( player )
 
 function onCBStartGametype()
 {
-	// spawn a CUAV in order to prevent the minimap
-	// from revealing info when you hit ESC or other
-	// locations for it to show up.
-
+	// act like a CUAV is there in order to prevent the minimap
 	// have to wait until it exists (well the script)
 	while ( !isdefined( level.activeCounterUAVs ) )
 		WAIT_SERVER_FRAME;
