@@ -62,27 +62,27 @@ function main()
 
 	// Sets the scoreboard columns and determines with data is sent across the network
 	globallogic::setvisiblescoreboardcolumns( "score", "kills", "deaths", "kdratio", "captures" );
-	//
+
 	level.endGameOnScoreLimit = false;
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
 	level.overrideTeamScore = true;
 	level.respawnMechanic = GetDvarInt( "scr_gf_respawn", 0 );
 	level.teamBased = true;
 	level.timeLimitOverride = false;
-	//
+
 	level.giveCustomLoadout = &giveCustomLoadout;
-	//
+
 	level.onDeadEvent = &onDeadEvent;
-	//
+
 	level.onPlayerDamage = &onPlayerDamage;
 	level.onPlayerKilled = &onPlayerKilled;
-	//
+
 	level.onRoundSwitch = &onRoundSwitch;
-	//
+
 	level.onSpawnPlayer = &onSpawnPlayer;
-	//
+
 	level.onStartGameType = &onStartGameType;
-	//
+
 	level.onTimeLimit = &onTimeLimit;
 	// Callbacks
 	callback::on_connect( &onPlayerConnect );
@@ -220,7 +220,7 @@ function onPlayerSpawned()
 	// Freeze bots for development
 	if ( GetDvarInt( "scr_gf_dev_stop_bots", 1 ) && self IsTestClient() )
 		self FreezeControlsAllowLook( true );
-	//
+
 	self thread watchGrenadeUsage();
 	// hide compass
 	self killstreaks::hide_compass();
@@ -256,20 +256,24 @@ function giveCustomLoadout()
 	tactical = GetWeapon( weaponClass["tactical"] );
 	// give primary & secondary, set primary as spawn weapon
 	self GiveWeapon( primary );
+	self GiveStartAmmo( primary );
+
 	self GiveWeapon( secondary );
+	self GiveStartAmmo( secondary );
+
 	self SetSpawnWeapon( primary );
 	// lethal grenade information
 	lethalCount = ( lethal != level.nullPrimaryOffhand ? lethal.startAmmo : 0 );
 	self GiveWeapon( lethal );
 	self SetWeaponAmmoClip( lethal, lethalCount );
-	self SwitchToOffhand( lethal );
+	self SwitchToOffHand( lethal );
 	self.grenadeTypePrimary = lethal;
 	self.grenadeTypePrimaryCount = lethalCount;
 	// tactical grenade information
 	tacticalCount = ( tactical != level.nullSecondaryOffhand ? tactical.startAmmo : 0 );
 	self GiveWeapon( tactical );
 	self SetWeaponAmmoClip( tactical, tacticalCount );
-	self SwitchToOffhand( tactical );
+	self SwitchToOffHand( tactical );
 	self.grenadeTypeSecondary = tactical;
 	self.grenadeTypeSecondaryCount = tacticalCount;
 	// disable extra movement
@@ -282,20 +286,14 @@ function giveCustomLoadout()
 
 function gunfightPickClass()
 {
-	// get updated dvar
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx" );
-	//
+	// TODO: possibly add specific playlist-style only tiers? i.e. shotguns classes only
 	tiers = [];
 	ARRAY_ADD( tiers, "random" );
-	// TODO: possibly add specific playlist-style only tiers? i.e. shotguns classes only
-	//ARRAY_ADD( tiers, "random_pistol" );
-	//ARRAY_ADD( tiers, "random_smg" );
-	//ARRAY_ADD( tiers, "random_assault");
-	//ARRAY_ADD( tiers, "random_sniper");
-	//ARRAY_ADD( tiers, "random_lmg");
-	// generate all classes from a random tier
+	//ARRAY_ADD( tiers, "random_<>" );
+
 	gunfightGenerateClasses( array::random( tiers ) );
-	// if there's no class pick a random one
+
 	if ( level.gunfightClassIdx == -1 )
 	{
 		weaponClass = array::random( level.gunfightWeaponTable );
@@ -303,7 +301,7 @@ function gunfightPickClass()
 	}
 	else
 		weaponClass = level.gunfightWeaponTable[ level.gunfightClassIdx ];
-	// assign the class
+
 	level.gunfightClass = weaponClass;
 }
 
@@ -348,6 +346,7 @@ function gunfightGenerateClasses( tblReference )
 					secondaryAttachments = StrTok( secondaryAttachments, "+" );
 					level.gunfightWeaponTable[i]["secondaryAttachments"] = secondaryAttachments;
 				}
+				// DEBUG
 				IPrintLnBold( sprintf( "IDX: {0} | Primary: {1} | Secondary: {2} | Lethal: {3} | Tactical: {4} | Perks: {5} | Reference: {6} | ARRAY IDX: {7}", itemRow - 1, primary, secondary, lethal, tactical, perks, reference, i ) );
 			}
 		}
@@ -411,15 +410,14 @@ function gunfightTimer()
 	//thread globallogic_utils::playTickingSound( "mpl_sab_ui_suitcasebomb_timer" );
 	while ( game["state"] == "playing" )
 	{
-		// returns as milliseconds, so divide by 1000 for seconds
 		timeRemaining = (level._timeLimit - GetTime());
-		// time's up so call timelimit
+
 		if ( timeRemaining <= 0 )
 		{
 			[[level.onTimeLimit]]();
 		}
 
-		wait( 0.5 ); // wait half a second rather than server frame
+		wait( 0.5 );
 	}
 }
 
@@ -450,8 +448,8 @@ function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, v
 		should_spawn_tags = self dogtags::should_spawn_tags(eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration);
 		// we should spawn tags if one the previous statements were true and we may not spawn
 		should_spawn_tags = should_spawn_tags && !globallogic_spawn::maySpawn();
-		//
-		if ( should_spawn_tags && getPlayersInTeam( self.team, true ).size > 0 )
+	
+		if ( should_spawn_tags && level.aliveCount[ self.team ] > 0 )
 			self thread createPlayerRespawn( attacker );
 	}
 }
@@ -471,6 +469,7 @@ function onTimeLimit()
 {
 	if ( !level.timeLimitOverride )
 	{
+		// show the flag and start the new timer
 		gunfightSpawnFlag();
 		thread gunfightTimer();
 		return;
@@ -481,13 +480,11 @@ function onTimeLimit()
 	// if the health for the teams are the same it's a draw
 	if ( alliesHealth == axisHealth )
 	{
-		// draw tie message
-		gf_endGame( "tie", "Round ended in a draw" );
+		gf_endGame( "tie", &"MP_ROUND_DRAW" );
 		return;
 	}
 	// determine the winner from best health
 	winner = (alliesHealth > axisHealth ? "allies" : "axis" );
-	// end the round and give the winner team score
 	gf_endGame( winner, "Team had more health!" );
 }
 
@@ -498,26 +495,6 @@ function gf_endGame( winningTeam, endReasonText )
 		globallogic_score::giveTeamScoreForObjective_DelayPostProcessing( winningTeam, 1 );
 
 	thread globallogic::endGame( winningTeam, endReasonText );
-}
-
-function getPlayersInTeam( team, b_seeIfAlive = false )
-{
-	players = [];
-	foreach ( player in level.players )
-	{
-		if ( player.pers["team"] == team )
-		{
-			// if we want to check if they're alive
-			if ( b_seeIfAlive )
-			{
-				if ( IsAlive( player ) )
-					array::add( players, player );
-			}
-			else
-				array::add( players, player );
-		}
-	}
-	return players;
 }
 
 function createPlayerRespawn( attacker )
@@ -532,11 +509,11 @@ function createPlayerRespawn( attacker )
 
 		ARRAY_ADD( player._weapons, player::get_weapondata( weapon ) );
 	}
-	// model
+
 	model = Spawn( "script_model", player.origin );
 	model SetModel( player GetFriendlyDogTagModel() );
 	model DontInterpolate();
-	// hide from enemy team(s)
+	// hide the tags from all teams
 	foreach ( team in level.teams )
 		model HideFromTeam( team );
 	// only show to friendly team
