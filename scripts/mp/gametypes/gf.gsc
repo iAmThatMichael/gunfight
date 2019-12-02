@@ -40,12 +40,11 @@
 #define WT_COL_REFERENCE 	6
 #define WT_COL_PRIMARY_ATTACHMENTS 		7
 #define WT_COL_SECONDARY_ATTACHMENTS	8
-#define WT_MAX_ITEMS 		256
 
 function main()
 {
 	globallogic::init();
-	// Gamemode util
+
 	util::registerRoundSwitch( 0, 9 );
 	util::registerTimeLimit( 0, 1440 );
 	util::registerScoreLimit( 0, 500 );
@@ -60,9 +59,9 @@ function main()
 
 	globallogic_audio::set_leader_gametype_dialog( undefined, undefined, "gameBoost", "gameBoost" );
 
-	// Sets the scoreboard columns and determines with data is sent across the network
 	globallogic::setvisiblescoreboardcolumns( "score", "kills", "deaths", "kdratio", "captures" );
 
+	// Gamemode vars
 	level.endGameOnScoreLimit = false;
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
 	level.overrideTeamScore = true;
@@ -70,53 +69,44 @@ function main()
 	level.teamBased = true;
 	level.timeLimitOverride = false;
 
+	// Gamemode functions
 	level.giveCustomLoadout = &giveCustomLoadout;
-
 	level.onDeadEvent = &onDeadEvent;
-
 	level.onPlayerDamage = &onPlayerDamage;
 	level.onPlayerKilled = &onPlayerKilled;
-
 	level.onRoundSwitch = &onRoundSwitch;
-
 	level.onSpawnPlayer = &onSpawnPlayer;
-
 	level.onStartGameType = &onStartGameType;
-
 	level.onTimeLimit = &onTimeLimit;
+
 	// Callbacks
 	callback::on_connect( &onPlayerConnect );
 	callback::on_disconnect( &onPlayerDisconnect );
 	callback::on_spawned( &onPlayerSpawned );
 	callback::on_start_gametype( &onCBStartGametype );
+
 	// DVars
 	// disable deathicons - if respawn is enabled
 	SetDvar( "ui_hud_showdeathicons", !level.respawnMechanic );
+
 	// DOM stuff
 	game["dialog"]["securing_a"] = "domFriendlySecuringA";
 	game["dialog"]["securing_b"] = "domFriendlySecuringB";
 	game["dialog"]["securing_c"] = "domFriendlySecuringC";
-
 	game["dialog"]["secured_a"] = "domFriendlySecuredA";
 	game["dialog"]["secured_b"] = "domFriendlySecuredB";
 	game["dialog"]["secured_c"] = "domFriendlySecuredC";
-
 	game["dialog"]["secured_all"] = "domFriendlySecuredAll";
-
 	game["dialog"]["losing_a"] = "domEnemySecuringA";
 	game["dialog"]["losing_b"] = "domEnemySecuringB";
 	game["dialog"]["losing_c"] = "domEnemySecuringC";
-
 	game["dialog"]["lost_a"] = "domEnemySecuredA";
 	game["dialog"]["lost_b"] = "domEnemySecuredB";
 	game["dialog"]["lost_c"] = "domEnemySecuredC";
-
 	game["dialog"]["lost_all"] = "domEnemySecuredAll";
-
 	game["dialog"]["enemy_a"] = "domEnemyHasA";
 	game["dialog"]["enemy_b"] = "domEnemyHasB";
 	game["dialog"]["enemy_c"] = "domEnemyHasC";
-
 	game["dialogTime"] = [];
 	game["dialogTime"]["securing_a"] = 0;
 	game["dialogTime"]["securing_b"] = 0;
@@ -165,28 +155,36 @@ function onStartGameType()
 			util::setObjectiveScoreText( team, &"MOD_OBJECTIVES_GUN_SCORE" );
 		}
 	}
-	// use SD spawnpoints
+
+	// set SD spawnpoints
 	spawnlogic::place_spawn_points( "mp_sd_spawn_attacker" );
 	spawnlogic::place_spawn_points( "mp_sd_spawn_defender" );
-	// use SD start spawnpoints
+
+	// set SD start spawnpoints
 	level.spawn_start = [];
 	level.spawn_start["axis"] = spawnlogic::get_spawnpoint_array( "mp_sd_spawn_defender" );
 	level.spawn_start["allies"] = spawnlogic::get_spawnpoint_array( "mp_sd_spawn_attacker" );
-	// use startspawns to prevent any issues
+
+	// force use startspawns to stop a few issues from the respawn mechanic
 	level.useStartSpawns = true;
 	level.alwaysUseStartSpawns = true;
-	// need this for DOM script -- on round switch this won't do anything right?
+
+	// need this for DOM script
 	level.startPos["allies"] = level.spawn_start["allies"][0].origin;
 	level.startPos["axis"] = level.spawn_start["axis"][0].origin;
+
 	// map center
 	level.mapCenter = math::find_box_center( level.spawnMins, level.spawnMaxs );
 	SetMapCenter( level.mapCenter );
+
 	// demo spawnpoint
 	spawnpoint = spawnlogic::get_random_intermission_point();
 	SetDemoIntermissionPoint( spawnpoint.origin, spawnpoint.angles );
+
 	// init DOM stuff - vars and flags
 	dom::updateGametypeDvars();
 	thread dom::domFlags();
+
 	// GF stuff
 	gunfightFlagUpdate();
 	gunfightPickClass();
@@ -195,7 +193,7 @@ function onStartGameType()
 function onPlayerConnect()
 {
 	self thread loadPlayer();
-	// hide compass
+
 	self killstreaks::hide_compass();
 }
 
@@ -222,7 +220,7 @@ function onPlayerSpawned()
 		self FreezeControlsAllowLook( true );
 
 	self thread watchGrenadeUsage();
-	// hide compass
+
 	self killstreaks::hide_compass();
 }
 
@@ -230,38 +228,27 @@ function giveCustomLoadout()
 {
 	// copy the class
 	weaponClass = level.gunfightClass;
+
 	// take all weapons & perks
 	self TakeAllWeapons();
 	self ClearPerks();
-	// weapon attachments need to be a different getweapon
-	if ( isdefined( weaponClass["primaryAttachments"] ) )
-	{
-		primary = GetWeapon( weaponClass["primary"], weaponClass["primaryAttachments"] );
-	}
-	else
-	{
-		primary = GetWeapon( weaponClass["primary"] );
-	}
-	// weapon attachments need to be a different getweapon
-	if ( isdefined( weaponClass["secondaryAttachments"] ) )
-	{
-		secondary = GetWeapon( weaponClass["secondary"], weaponClass["secondaryAttachments"] );
-	}
-	else
-	{
-		secondary = GetWeapon( weaponClass["secondary"] );
-	}
+
+	// weapon attachments are handled differently
+	primary = ( isdefined( weaponClass["primaryAttachments"] ? GetWeapon( weaponClass["primary"], weaponClass["primaryAttachments"] : GetWeapon( weaponClass["primary"] ) );
+	secondary = ( isdefined( weaponClass["secondaryAttachments"] ? GetWeapon( weaponClass["secondary"], weaponClass["secondaryAttachments"] : GetWeapon( weaponClass["secondary"] ) );
+
 	// get equipment
 	lethal = GetWeapon( weaponClass["lethal"] );
 	tactical = GetWeapon( weaponClass["tactical"] );
+
 	// give primary & secondary, set primary as spawn weapon
 	self GiveWeapon( primary );
 	self GiveStartAmmo( primary );
+	self SetSpawnWeapon( primary );
 
 	self GiveWeapon( secondary );
 	self GiveStartAmmo( secondary );
 
-	self SetSpawnWeapon( primary );
 	// lethal grenade information
 	lethalCount = ( lethal != level.nullPrimaryOffhand ? lethal.startAmmo : 0 );
 	self GiveWeapon( lethal );
@@ -269,6 +256,7 @@ function giveCustomLoadout()
 	self SwitchToOffHand( lethal );
 	self.grenadeTypePrimary = lethal;
 	self.grenadeTypePrimaryCount = lethalCount;
+
 	// tactical grenade information
 	tacticalCount = ( tactical != level.nullSecondaryOffhand ? tactical.startAmmo : 0 );
 	self GiveWeapon( tactical );
@@ -276,10 +264,12 @@ function giveCustomLoadout()
 	self SwitchToOffHand( tactical );
 	self.grenadeTypeSecondary = tactical;
 	self.grenadeTypeSecondaryCount = tacticalCount;
+
 	// disable extra movement
-	self AllowDoubleJump(false);
-	self AllowSlide(false);
-	self AllowWallRun(false);
+	self AllowDoubleJump( false );
+	self AllowSlide( false );
+	self AllowWallRun( false );
+
 	// return the primary weapon
 	return primary;
 }
@@ -287,6 +277,7 @@ function giveCustomLoadout()
 function gunfightPickClass()
 {
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx" );
+
 	// TODO: possibly add specific playlist-style only tiers? i.e. shotguns classes only
 	tiers = [];
 	ARRAY_ADD( tiers, "random" );
@@ -327,7 +318,7 @@ function gunfightGenerateClasses( tblReference )
 				perks = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PERKS );
 				primaryAttachments = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PRIMARY_ATTACHMENTS );
 				secondaryAttachments = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_SECONDARY_ATTACHMENTS );
-				// --
+
 				level.gunfightWeaponTable[i]["index"] = itemRow - 1;
 				level.gunfightWeaponTable[i]["primary"] = primary;
 				level.gunfightWeaponTable[i]["secondary"] = secondary;
@@ -335,7 +326,7 @@ function gunfightGenerateClasses( tblReference )
 				level.gunfightWeaponTable[i]["tactical"] = tactical;
 				level.gunfightWeaponTable[i]["perks"] = perks;
 				level.gunfightWeaponTable[i]["reference"] = reference;
-				// --
+
 				if ( isdefined( primaryAttachments ) )
 				{
 					primaryAttachments = StrTok( primaryAttachments, "+" );
@@ -346,6 +337,7 @@ function gunfightGenerateClasses( tblReference )
 					secondaryAttachments = StrTok( secondaryAttachments, "+" );
 					level.gunfightWeaponTable[i]["secondaryAttachments"] = secondaryAttachments;
 				}
+
 				// DEBUG
 				IPrintLnBold( sprintf( "IDX: {0} | Primary: {1} | Secondary: {2} | Lethal: {3} | Tactical: {4} | Perks: {5} | Reference: {6} | ARRAY IDX: {7}", itemRow - 1, primary, secondary, lethal, tactical, perks, reference, i ) );
 			}
@@ -396,21 +388,27 @@ function watchForFlagCap()
 function gunfightTimer()
 {
 	level endon( "game_ended" );
+
 	// override the time
 	level.timeLimitOverride = true;
+
 	// calculate new time limit
 	additionalTime = 30 * 1000;
 	timeLimit = Int( GetTime() + additionalTime );
+
 	// set the new time
 	SetGameEndTime( timeLimit );
+
 	// assign new timelimit var, internal one keeps changing
 	level._timeLimit = timeLimit;
+
 	// don't think MW has a sound effect when flag timer is counting down
 	//level.bombTimer = timeLimit;
 	//thread globallogic_utils::playTickingSound( "mpl_sab_ui_suitcasebomb_timer" );
+
 	while ( game["state"] == "playing" )
 	{
-		timeRemaining = (level._timeLimit - GetTime());
+		timeRemaining = ( level._timeLimit - GetTime() );
 
 		if ( timeRemaining <= 0 )
 		{
@@ -446,9 +444,10 @@ function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, v
 	if ( level.respawnMechanic )
 	{
 		should_spawn_tags = self dogtags::should_spawn_tags(eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration);
+
 		// we should spawn tags if one the previous statements were true and we may not spawn
 		should_spawn_tags = should_spawn_tags && !globallogic_spawn::maySpawn();
-	
+
 		if ( should_spawn_tags && level.aliveCount[ self.team ] > 0 )
 			self thread createPlayerRespawn( attacker );
 	}
@@ -461,6 +460,7 @@ function onRoundSwitch()
 
 	level.halftimeType = "halftime";
 	game["switchedsides"] = !game["switchedsides"];
+
 	// reset the class dvar
 	SetDvar( "scr_gf_class_idx", -1 );
 }
@@ -474,17 +474,20 @@ function onTimeLimit()
 		thread gunfightTimer();
 		return;
 	}
+
 	// once time runs out from the OBJ flag determine the winnner
 	alliesHealth = calculateHealthForTeam( "allies" );
 	axisHealth = calculateHealthForTeam( "axis" );
+
 	// if the health for the teams are the same it's a draw
 	if ( alliesHealth == axisHealth )
 	{
 		gf_endGame( "tie", &"MP_ROUND_DRAW" );
 		return;
 	}
+
 	// determine the winner from best health
-	winner = (alliesHealth > axisHealth ? "allies" : "axis" );
+	winner = ( alliesHealth > axisHealth ? "allies" : "axis" );
 	gf_endGame( winner, "Team had more health!" );
 }
 
@@ -500,6 +503,7 @@ function gf_endGame( winningTeam, endReasonText )
 function createPlayerRespawn( attacker )
 {
 	player = self;
+
 	// save the weapondata
 	foreach ( weapon in player GetWeaponsList( true ) )
 	{
@@ -513,17 +517,21 @@ function createPlayerRespawn( attacker )
 	model = Spawn( "script_model", player.origin );
 	model SetModel( player GetFriendlyDogTagModel() );
 	model DontInterpolate();
+
 	// hide the tags from all teams
 	foreach ( team in level.teams )
 		model HideFromTeam( team );
+
 	// only show to friendly team
 	model ShowToTeam( player.team );
 	visuals = Array( model );
+
 	// trigger
 	trigger = Spawn( "trigger_radius_use", player.origin + (0,0,16), 0, 32, 32 );
 	trigger SetCursorHint( "HINT_NOICON" );
 	trigger TriggerIgnoreTeam();
 	trigger UseTriggerRequireLookAt();
+
 	// object - base
 	obj = gameobjects::create_use_object( player.team, trigger, visuals, (0,0,0), IString( "headicon_dead" ) );
 	obj gameobjects::set_use_time( 5 );
@@ -532,11 +540,14 @@ function createPlayerRespawn( attacker )
 	obj gameobjects::allow_use( "friendly" );
 	obj gameobjects::set_visible_team( "friendly" );
 	obj gameobjects::set_owner_team( player.team );
+
 	// object - functionality
 	obj.onUse = &onTagUse;
 	obj.targetPlayer = player;
+
 	// makes the dogtags bounce
 	obj thread bounce();
+
 	// delete the gameobject when round/match ends or when player DC's
 	obj thread deleteOnEnd();
 }
@@ -545,15 +556,19 @@ function onTagUse( player )
 {
 	self.targetPlayer.pers["lives"] = 1;
 	self.targetPlayer [[level.spawnClient]]();
+
 	// set the origin back to the deathpoint
 	self.targetPlayer SetOrigin( self.origin - (0,0,32) );
 	self.targetPlayer.health = 65;
 	self.targetPlayer.maxhealth = 65;
+
 	// wait a server frame to ensure player is back
 	WAIT_SERVER_FRAME;
+
 	// make sure to take away their inventory before giving it back
 	self.targetPlayer TakeAllWeapons();
 	self.targetPlayer player::give_back_weapons( true );
+
 	// delete the gameobject afterwards
 	self gameobjects::destroy_object();
 }
@@ -564,9 +579,11 @@ function onCBStartGametype()
 	// have to wait until it exists (well the script)
 	while ( !isdefined( level.activeCounterUAVs ) )
 		WAIT_SERVER_FRAME;
+
 	// increment CUAV for both teams
 	level.activeCounterUAVs[ "allies" ]++;
 	level.activeCounterUAVs[ "axis" ]++;
+
 	// notify that CUAV is in
 	level notify( "counter_uav_updated" );
 }
@@ -587,27 +604,32 @@ function loadPlayer()
 	{
 		return;
 	}
+
 	// satisfy globallogic_spawn maySpawn() to prevent errors on spawn
 	self.pers["lives"] = 1;
 	self.waitingToSpawn = true;
+
 	// satisfy matchRecordLogAdditionalDeathInfo 5th parameter (_globallogic_player)
 	self.class_num = 0;
+
 	// wait for streamer
 	self waitForStreamer();
+
 	// set a default class
 	self.pers["class"] = level.defaultClass;
 	self.curClass = level.defaultClass;
+
 	// close all menus
 	self globallogic_ui::closeMenus();
 	self CloseMenu( "ChooseClass_InGame" );
-	// just spawn the player
+
 	self thread [[level.spawnClient]]();
 }
 
 function waitForStreamer()
 {
 	started_waiting = GetTime();
-	while( !self IsStreamerReady( -1, 1 ) && started_waiting + 90000 > GetTime() )
+	while ( !self IsStreamerReady( -1, 1 ) && started_waiting + 90000 > GetTime() )
 	{
 		WAIT_SERVER_FRAME;
 	}
@@ -616,6 +638,7 @@ function waitForStreamer()
 function calculateHealthForTeam( team )
 {
 	teamHealth = 0;
+
 	foreach ( player in level.players )
 	{
 		if ( !IsAlive( player ) )
@@ -633,8 +656,10 @@ function private watchGrenadeUsage()
 {
 	self endon( "death" );
 	self endon( "disconnect" );
-	// custom monitor system to handle equipment -- handles both
+
+	// custom monitor system to handle equipment -- handles lethal/tactical
 	self._throwingGrenade = level.weaponNone;
+
 	// monitor for when the grenade "ends"
 	self thread watchGrenadeEnd();
 
