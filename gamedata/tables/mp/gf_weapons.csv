@@ -6,3 +6,5 @@ slot,primary,secondary,lethal,tactical,perk,reference,primaryAttachments,seconda
 4,smg_ak74u,knife_ballistic,null_offhand_primary,null_offhand_secondary,,random,steadyaim+grip+stalker,
 5,melee_butterfly,bare_hands,hatchet,willy_pete,,random,,
 6,sniper_mosin,pistol_shotgun,frag_grenade,proximity_grenade,,random,dualoptic+extclip+stalker,reflex+steadyaim+fastreload
+7,smg_longrange,pistol_standard,null_offhand_primary,null_offhand_secondary,,random,reflex+stalker,
+8,shotgun_energy,bare_hands,incendiary_grenade,proximity_grenade,,random,reflex+stalker+rf
