@@ -64,6 +64,7 @@ function main()
 	// Gamemode vars
 	level.endGameOnScoreLimit = false;
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
+	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl", "" );
 	level.overrideTeamScore = true;
 	level.respawnMechanic = GetDvarInt( "scr_gf_respawn", 0 );
 	level.teamBased = true;
@@ -118,7 +119,7 @@ function main()
 
 function onStartGameType()
 {
-	setClientNameMode("manual_change");
+	SetClientNameMode( "manual_change" );
 
 	if ( !isdefined( game["switchedsides"] ) )
 	{
@@ -186,6 +187,7 @@ function onStartGameType()
 	thread dom::domFlags();
 
 	// GF stuff
+	gunfightUpdateDvars();
 	gunfightFlagUpdate();
 	gunfightPickClass();
 }
@@ -234,8 +236,8 @@ function giveCustomLoadout()
 	self ClearPerks();
 
 	// weapon attachments are handled differently
-	primary = ( isdefined( weaponClass["primaryAttachments"] ? GetWeapon( weaponClass["primary"], weaponClass["primaryAttachments"] : GetWeapon( weaponClass["primary"] ) );
-	secondary = ( isdefined( weaponClass["secondaryAttachments"] ? GetWeapon( weaponClass["secondary"], weaponClass["secondaryAttachments"] : GetWeapon( weaponClass["secondary"] ) );
+	primary = ( isdefined( weaponClass["primaryAttachments"] ) ? GetWeapon( weaponClass["primary"], weaponClass["primaryAttachments"] ) : GetWeapon( weaponClass["primary"] ) );
+	secondary = ( isdefined( weaponClass["secondaryAttachments"] ) ? GetWeapon( weaponClass["secondary"], weaponClass["secondaryAttachments"] ) : GetWeapon( weaponClass["secondary"] ) );
 
 	// get equipment
 	lethal = GetWeapon( weaponClass["lethal"] );
@@ -274,10 +276,21 @@ function giveCustomLoadout()
 	return primary;
 }
 
+function gunfightUpdateDvars()
+{
+	// reset the dvars (for example from fast_restart/map_restart)
+	if ( util::isFirstRound() )
+	{
+		SetDvar( "scr_gf_class_idx", -1 );
+		SetDvar( "scr_gf_class_excl", "" );
+	}
+
+	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx" );
+	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl" );
+}
+
 function gunfightPickClass()
 {
-	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx" );
-
 	// TODO: possibly add specific playlist-style only tiers? i.e. shotguns classes only
 	tiers = [];
 	ARRAY_ADD( tiers, "random" );
@@ -287,6 +300,18 @@ function gunfightPickClass()
 
 	if ( level.gunfightClassIdx == -1 )
 	{
+		// remove classes that have been used
+		if ( isdefined( level.gunfightClassExcl ) && level.gunfightClassExcl != "" )
+		{
+			exclClasses = StrTok( level.gunfightClassExcl, " " );
+
+			foreach ( exclClass in exclClasses )
+			{
+				if ( exclClass != " " )
+					ArrayRemoveIndex( level.gunfightWeaponTable, Int( exclClass ) );
+			}
+		}
+
 		weaponClass = array::random( level.gunfightWeaponTable );
 		SetDvar( "scr_gf_class_idx", weaponClass["index"] );
 	}
@@ -339,7 +364,7 @@ function gunfightGenerateClasses( tblReference )
 				}
 
 				// DEBUG
-				IPrintLnBold( sprintf( "IDX: {0} | Primary: {1} | Secondary: {2} | Lethal: {3} | Tactical: {4} | Perks: {5} | Reference: {6} | ARRAY IDX: {7}", itemRow - 1, primary, secondary, lethal, tactical, perks, reference, i ) );
+				//IPrintLnBold( sprintf( "IDX: {0} | Primary: {1} | Secondary: {2} | Lethal: {3} | Tactical: {4} | Perks: {5} | Reference: {6} | ARRAY IDX: {7}", itemRow - 1, primary, secondary, lethal, tactical, perks, reference, i ) );
 			}
 		}
 	}
@@ -463,6 +488,8 @@ function onRoundSwitch()
 
 	// reset the class dvar
 	SetDvar( "scr_gf_class_idx", -1 );
+	// add this class to excl classes
+	SetDvar( "scr_gf_class_excl", ( level.gunfightClassIdx + " " + level.gunfightClassExcl ) );
 }
 
 function onTimeLimit()
@@ -590,10 +617,10 @@ function onCBStartGametype()
 
 function loadPlayer()
 {
-	level endon("game_ended");
-	self endon("death");
-	self endon("disconnect");
-	self endon("spawned");
+	level endon( "game_ended" );
+	self endon( "death" );
+	self endon( "disconnect" );
+	self endon( "spawned" );
 
 	if ( IS_TRUE( self.hasSpawned ) )
 	{
