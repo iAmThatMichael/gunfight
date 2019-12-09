@@ -19,7 +19,6 @@
 #using scripts\mp\gametypes\_spawning;
 #using scripts\mp\gametypes\_spawnlogic;
 #using scripts\mp\gametypes\dom;
-#using scripts\mp\gametypes\sd;
 
 #using scripts\mp\teams\_teams;
 
@@ -202,8 +201,6 @@ function onPlayerConnect()
 function onPlayerDisconnect()
 {
 	// TODO: update LUI models so amount of people and health
-	// also end game if one side DC's
-	// assume that there's no switching teams
 	globallogic::checkForForfeit();
 }
 
@@ -468,7 +465,7 @@ function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, v
 {
 	if ( level.respawnMechanic )
 	{
-		should_spawn_tags = self dogtags::should_spawn_tags(eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration);
+		should_spawn_tags = self dogtags::should_spawn_tags( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration );
 
 		// we should spawn tags if one the previous statements were true and we may not spawn
 		should_spawn_tags = should_spawn_tags && !globallogic_spawn::maySpawn();
@@ -515,7 +512,7 @@ function onTimeLimit()
 
 	// determine the winner from best health
 	winner = ( alliesHealth > axisHealth ? "allies" : "axis" );
-	gf_endGame( winner, "Team had more health!" );
+	gf_endGame( winner, "Team had more health!" ); // TODO: move to a localized string
 }
 
 function gf_endGame( winningTeam, endReasonText )
@@ -586,6 +583,22 @@ function onTagUse( player )
 
 	// set the origin back to the deathpoint
 	self.targetPlayer SetOrigin( self.origin - (0,0,32) );
+	// make the player take some damage
+	/*self.targetPlayer thread [[level.callbackPlayerDamage]](
+			self, // eInflictor The entity that causes the damage.(e.g. a turret)
+			self, // eAttacker The entity that is attacking.
+			35, // iDamage Integer specifying the amount of damage done
+			0, // iDFlags Integer specifying flags that are to be applied to the damage
+			"MOD_PISTOL_BULLET", // sMeansOfDeath Integer specifying the method of death
+			level.weaponNone, // weapon The weapon used to inflict the damage
+			self.origin, // vPoint The point the damage is from?
+			self.angles, // vDir The direction of the damage
+			"none", // sHitLoc The location of the hit
+			self.origin, // vDamageOrigin
+			0, // psOffsetTime The time offset for the damage
+			0, // boneIndex
+			(1,0,0) // vSurfaceNormal
+		);*/
 	self.targetPlayer.health = 65;
 	self.targetPlayer.maxhealth = 65;
 
