@@ -83,8 +83,8 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 
 	GFScoreBaseWidget:addElement(TeamFriendSize2)
 
-	local FriendlyHealth = Engine.GetModel(Engine.GetModelForController(InstanceRef), "hudItems.gffriendlyteam_health_num")
-	local FriendlyTeamSize = Engine.GetModel(Engine.GetModelForController(InstanceRef), "hudItems.gffriendlyteam_size_num")
+	local FriendlyHealth = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "hudItems.gffriendlyteam_health_num")
+	local FriendlyTeamSize = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "hudItems.gffriendlyteam_size_num")
 
 	local function TeamFriendlyFunc(ModelRef)
 		if FriendlyHealth and FriendlyTeamSize and
@@ -109,12 +109,13 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 				TeamFriendHealthBar:setAlpha(1)
 			end
 
-			TeamFriendHealthBar:setLeftRight(false, false, -60 - (97 * (Engine.GetModelValue(FriendlyHealth) / 200)), -157)
+			TeamFriendHealthBar:setLeftRight(false, false, -157 + (97 * (Engine.GetModelValue(FriendlyHealth) / 200)), -157)
 		end
 	end
 
-	Engine.SetModelValue( Engine.CreateModel( Engine.GetModelForController(InstanceRef), "hudItems.gffriendlyteam_health_num" ), 0 )
-	Engine.SetModelValue( Engine.CreateModel( Engine.GetModelForController(InstanceRef), "hudItems.gffriendlyteam_size_num" ), 0 )
+	Engine.SetModelValue( FriendlyHealth, 0 )
+	Engine.SetModelValue( FriendlyTeamSize, 0 )
+
 	GFScoreBaseWidget:subscribeToModel(FriendlyHealth, TeamFriendlyFunc)
 	GFScoreBaseWidget:subscribeToModel(FriendlyTeamSize, TeamFriendlyFunc)
 
@@ -178,8 +179,8 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 
 	GFScoreBaseWidget:addElement(TeamEnemySize2)
 
-	local EnemyHealth = Engine.GetModel(Engine.GetModelForController(InstanceRef), "hudItems.gfenemyteam_health_num")
-	local EnemyTeamSize = Engine.GetModel(Engine.GetModelForController(InstanceRef), "hudItems.gfenemyteam_size_num")
+	local EnemyHealth = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "hudItems.gfenemyteam_health_num")
+	local EnemyTeamSize = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "hudItems.gfenemyteam_size_num")
 
 	local function TeamEnemyFunc(ModelRef)
 		if EnemyHealth and EnemyTeamSize and
@@ -204,12 +205,13 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 				TeamEnemyHealthBar:setAlpha(1)
 			end
 
-			TeamEnemyHealthBar:setLeftRight(false, false, 60 + (97 * (Engine.GetModelValue(EnemyHealth) / 200)), 157)
+			TeamEnemyHealthBar:setLeftRight(false, false, 157 - (97 * (Engine.GetModelValue(EnemyHealth) / 200)), 157)
 		end
 	end
 
-	Engine.SetModelValue( Engine.CreateModel( Engine.GetModelForController(InstanceRef), "hudItems.gfenemyteam_health_num" ), 0 )
-	Engine.SetModelValue( Engine.CreateModel( Engine.GetModelForController(InstanceRef), "hudItems.gfenemyteam_size_num" ), 0 )
+	Engine.SetModelValue( EnemyValue, 0 )
+	Engine.SetModelValue( EnemyTeamSize, 0 )
+
 	GFScoreBaseWidget:subscribeToModel(EnemyHealth, TeamEnemyFunc)
 	GFScoreBaseWidget:subscribeToModel(EnemyTeamSize, TeamEnemyFunc)
 
@@ -250,43 +252,43 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
         HudRef:updateElementState(GFScoreBaseWidget, {
             name = "model_validation",
             menu = HudRef,
-            modelValue = Engine.GetModelValue(ModelRef), 
+            modelValue = Engine.GetModelValue(ModelRef),
             modelName = "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_SCOREBOARD_OPEN
         })
     end)
 
 	GFScoreBaseWidget:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_GAME_ENDED), function(ModelRef)
 		HudRef:updateElementState(GFScoreBaseWidget, {
-			name = "model_validation", 
+			name = "model_validation",
 			menu = HudRef,
-			modelValue = Engine.GetModelValue(ModelRef), 
+			modelValue = Engine.GetModelValue(ModelRef),
 			modelName = "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_GAME_ENDED
 		})
 	end)
 
 	GFScoreBaseWidget:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_UI_ACTIVE), function(ModelRef)
 		HudRef:updateElementState(GFScoreBaseWidget, {
-			name = "model_validation", 
+			name = "model_validation",
 			menu = HudRef,
-			modelValue = Engine.GetModelValue(ModelRef), 
+			modelValue = Engine.GetModelValue(ModelRef),
 			modelName = "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_UI_ACTIVE
 		})
 	end)
 
 	GFScoreBaseWidget:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_WEAPON_HUD_VISIBLE), function(ModelRef)
 		HudRef:updateElementState(GFScoreBaseWidget, {
-			name = "model_validation", 
+			name = "model_validation",
 			menu = HudRef,
-			modelValue = Engine.GetModelValue(ModelRef), 
+			modelValue = Engine.GetModelValue(ModelRef),
 			modelName = "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_WEAPON_HUD_VISIBLE
 		})
 	end)
 
 	GFScoreBaseWidget:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_HUD_VISIBLE), function(ModelRef)
 		HudRef:updateElementState(GFScoreBaseWidget, {
-			name = "model_validation", 
+			name = "model_validation",
 			menu = HudRef,
-			modelValue = Engine.GetModelValue(ModelRef), 
+			modelValue = Engine.GetModelValue(ModelRef),
 			modelName = "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_HUD_VISIBLE
 		})
 	end)

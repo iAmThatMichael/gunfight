@@ -2,17 +2,28 @@
 >type,common
 
 #include "mp_mod.class"
+
 // DEBUG
 //scriptparsetree,scripts/mp/gametypes/_globallogic_player.gsc
 //scriptparsetree,scripts/mp/gametypes/_spawning.gsc
+scriptparsetree,scripts/shared/callbacks_shared.csc
+
 // Gametype
 scriptparsetree,scripts/mp/gametypes/gf.csc
 scriptparsetree,scripts/mp/gametypes/gf.gsc
+
 // Bot
 scriptparsetree,scripts/mp/bots/_bot.gsc
+
 // Rawfile
 rawfile,gamedata/gamesettings/mp/gamesettings_gf.cfg
+
 // Stringtable
 stringtable,gamedata/tables/mp/gf_weapons.csv
+
 // Localization
 localize,mod
+
+// UI
+rawfile,ui/uieditor/menus/hud/t7hud_mp.lua
+rawfile,ui/uieditor/widgets/gunfight_score_container.lua

@@ -1,5 +1,6 @@
 #using scripts\shared\array_shared;
 #using scripts\shared\callbacks_shared;
+#using scripts\shared\clientfield_shared;
 #using scripts\shared\gameobjects_shared;
 #using scripts\shared\math_shared;
 #using scripts\shared\player_shared;
@@ -23,10 +24,12 @@
 #using scripts\mp\teams\_teams;
 
 #insert scripts\shared\shared.gsh;
+#insert scripts\shared\version.gsh;
 
 #precache( "string", "MOD_OBJECTIVES_GUN" );
 #precache( "string", "MOD_OBJECTIVES_GUN_SCORE" );
 #precache( "string", "MOD_OBJECTIVES_GUN_HINT" );
+#precache( "string", "MOD_ROUND_HAD_MORE_HP" );
 #precache( "xmodel", "p7_dogtags_enemy" );
 
 #define WEAPON_TABLE 		"gamedata/tables/mp/gf_weapons.csv"
@@ -88,6 +91,13 @@ function main()
 	// DVars
 	// disable deathicons - if respawn is enabled
 	SetDvar( "ui_hud_showdeathicons", !level.respawnMechanic );
+
+	// LUI
+	clientfield::register( "toplayer", "gffriendlyteam_health_num", VERSION_SHIP, 20, "int" );
+	clientfield::register( "toplayer", "gffriendlyteam_size_num", VERSION_SHIP, 2, "int" );
+
+	clientfield::register( "toplayer", "gfenemyteam_health_num", VERSION_SHIP, 20, "int" );
+	clientfield::register( "toplayer", "gfenemyteam_size_num", VERSION_SHIP, 2, "int" );
 
 	// DOM stuff
 	game["dialog"]["securing_a"] = "domFriendlySecuringA";
@@ -200,13 +210,13 @@ function onPlayerConnect()
 
 function onPlayerDisconnect()
 {
-	// TODO: update LUI models so amount of people and health
 	globallogic::checkForForfeit();
+	thread updateGFHud();
 }
 
-function onSpawnPlayer(predictedSpawn)
+function onSpawnPlayer( predictedSpawn )
 {
-	spawning::onSpawnPlayer(predictedSpawn);
+	spawning::onSpawnPlayer( predictedSpawn );
 }
 
 function onPlayerSpawned()
@@ -221,6 +231,8 @@ function onPlayerSpawned()
 	self thread watchGrenadeUsage();
 
 	self killstreaks::hide_compass();
+
+	thread updateGFHud();
 }
 
 function giveCustomLoadout()
@@ -302,10 +314,10 @@ function gunfightPickClass()
 		{
 			exclClasses = StrTok( level.gunfightClassExcl, " " );
 
-			foreach ( exclClass in exclClasses )
+			foreach ( exclIdx in exclClasses )
 			{
-				if ( exclClass != " " )
-					ArrayRemoveIndex( level.gunfightWeaponTable, Int( exclClass ) );
+				if ( exclIdx != " " && Int( exclIdx ) > 0 )
+					ArrayRemoveIndex( level.gunfightWeaponTable, Int( exclIdx ) );
 			}
 		}
 
@@ -456,6 +468,8 @@ function onDeadEvent( team )
 
 function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime )
 {
+	thread updateGFHud();
+
 	IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: ^1" + iDamage );
 
 	return iDamage;
@@ -463,6 +477,8 @@ function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath,
 
 function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration )
 {
+	thread updateGFHud();
+
 	if ( level.respawnMechanic )
 	{
 		should_spawn_tags = self dogtags::should_spawn_tags( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration );
@@ -512,7 +528,7 @@ function onTimeLimit()
 
 	// determine the winner from best health
 	winner = ( alliesHealth > axisHealth ? "allies" : "axis" );
-	gf_endGame( winner, "Team had more health!" ); // TODO: move to a localized string
+	gf_endGame( winner, &"MOD_ROUND_HAD_MORE_HP" ); // TODO: move to a localized string
 }
 
 function gf_endGame( winningTeam, endReasonText )
@@ -626,6 +642,9 @@ function onCBStartGametype()
 
 	// notify that CUAV is in
 	level notify( "counter_uav_updated" );
+
+	while ( IS_TRUE( level.inPrematchPeriod ) )
+		WAIT_SERVER_FRAME;
 }
 
 function loadPlayer()
@@ -692,6 +711,43 @@ function calculateHealthForTeam( team )
 	return teamHealth;
 }
 
+function updateGFHud( team = undefined )
+{
+	level endon ( "game_ended" );
+	// only have one of these threads running to prevent overlap (?)
+	level notify ( "updateGFHud_singleton" );
+	level endon ( "updateGFHud_singleton" );
+	// wait a frame to process the damage completely
+	// TODO: possible bug research post damage callback
+	WAIT_SERVER_FRAME;
+
+	allies_health = calculateHealthForTeam( "allies" );
+	allies_count = level.aliveCount[ "allies" ];
+
+	axis_health = calculateHealthForTeam( "axis" );
+	axis_count = level.aliveCount[ "axis" ];
+
+	foreach ( player in level.players )
+	{
+		friendly_team = player.team;
+		enemy_team = util::getOtherTeam( player.team );
+
+		friendly_health = ( friendly_team == "allies" ? allies_health : axis_health );
+		friendly_count = ( friendly_team == "allies" ? allies_count : axis_count );
+
+		enemy_health = ( enemy_team == "axis" ? axis_health : allies_health );
+		enemy_count = ( enemy_team == "axis" ? axis_count : allies_count );
+
+		// update friendly first
+		player clientfield::set_to_player( "gffriendlyteam_health_num", Int( friendly_health ) );
+		player clientfield::set_to_player( "gffriendlyteam_size_num", Int( friendly_count ) );
+
+		// update enemy team after;
+		player clientfield::set_to_player( "gfenemyteam_health_num", Int( enemy_health ) );
+		player clientfield::set_to_player( "gfenemyteam_size_num", Int( enemy_count ) );
+	}
+}
+
 function private watchGrenadeUsage()
 {
 	self endon( "death" );
@@ -749,13 +805,13 @@ function private bounce()
 
 	while( isdefined( self ) )
 	{
-		self.visuals[0] moveTo( topPos, 0.5, 0.15, 0.15 );
-		self.visuals[0] rotateYaw( 180, 0.5 );
+		self.visuals[0] MoveTo( topPos, 0.5, 0.15, 0.15 );
+		self.visuals[0] RotateYaw( 180, 0.5 );
 
 		wait( 0.5 );
 
-		self.visuals[0] moveTo( bottomPos, 0.5, 0.15, 0.15 );
-		self.visuals[0] rotateYaw( 180, 0.5 );
+		self.visuals[0] MoveTo( bottomPos, 0.5, 0.15, 0.15 );
+		self.visuals[0] RotateYaw( 180, 0.5 );
 
 		wait( 0.5 );
 	}

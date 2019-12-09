@@ -11,4 +11,7 @@ LANG_ENGLISH	"Eliminate the enemy team."
 REFERENCE 		OBJECTIVES_GUN_HINT
 LANG_ENGLISH	"Eliminate the enemy team."
 
+REFERENCE		ROUND_HAD_MORE_HP
+LANG_ENGLISH	"Round ended by health difference"
+
 ENDMARKER
