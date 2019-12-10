@@ -113,8 +113,8 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 		end
 	end
 
-	Engine.SetModelValue( FriendlyHealth, 0 )
-	Engine.SetModelValue( FriendlyTeamSize, 0 )
+	Engine.SetModelValue(FriendlyHealth, 0)
+	Engine.SetModelValue(FriendlyTeamSize, 0)
 
 	GFScoreBaseWidget:subscribeToModel(FriendlyHealth, TeamFriendlyFunc)
 	GFScoreBaseWidget:subscribeToModel(FriendlyTeamSize, TeamFriendlyFunc)
@@ -209,8 +209,8 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 		end
 	end
 
-	Engine.SetModelValue( EnemyValue, 0 )
-	Engine.SetModelValue( EnemyTeamSize, 0 )
+	Engine.SetModelValue(EnemyValue, 0)
+	Engine.SetModelValue(EnemyTeamSize, 0)
 
 	GFScoreBaseWidget:subscribeToModel(EnemyHealth, TeamEnemyFunc)
 	GFScoreBaseWidget:subscribeToModel(EnemyTeamSize, TeamEnemyFunc)
@@ -223,7 +223,10 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 					Engine.IsVisibilityBitSet(InstanceRef, Enum.UIVisibilityBit.BIT_GAME_ENDED) or
 					Engine.IsVisibilityBitSet(InstanceRef, Enum.UIVisibilityBit.BIT_UI_ACTIVE) or not
 					Engine.IsVisibilityBitSet(InstanceRef, Enum.UIVisibilityBit.BIT_HUD_VISIBLE) or not
-					Engine.IsVisibilityBitSet(InstanceRef, Enum.UIVisibilityBit.BIT_WEAPON_HUD_VISIBLE)
+					Engine.IsVisibilityBitSet(InstanceRef, Enum.UIVisibilityBit.BIT_WEAPON_HUD_VISIBLE) or
+					Engine.IsVisibilityBitSet(InstanceRef, Enum.UIVisibilityBit.BIT_FINAL_KILLCAM) or
+					Engine.IsVisibilityBitSet(InstanceRef, Enum.UIVisibilityBit.BIT_ROUND_END_KILLCAM) or
+					Engine.IsVisibilityBitSet(InstanceRef, Enum.UIVisibilityBit.BIT_IN_KILLCAM)
 			end
 		}
 	}
@@ -290,6 +293,33 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 			menu = HudRef,
 			modelValue = Engine.GetModelValue(ModelRef),
 			modelName = "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_HUD_VISIBLE
+		})
+	end)
+
+	GFScoreBaseWidget:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_FINAL_KILLCAM), function(ModelRef)
+		HudRef:updateElementState(GFScoreBaseWidget, {
+			name = "model_validation",
+			menu = HudRef,
+			modelValue = Engine.GetModelValue(ModelRef),
+			modelName = "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_FINAL_KILLCAM
+		})
+	end)
+
+	GFScoreBaseWidget:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_ROUND_END_KILLCAM), function(ModelRef)
+		HudRef:updateElementState(GFScoreBaseWidget, {
+			name = "model_validation",
+			menu = HudRef,
+			modelValue = Engine.GetModelValue(ModelRef),
+			modelName = "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_ROUND_END_KILLCAM
+		})
+	end)
+
+	GFScoreBaseWidget:subscribeToModel(Engine.GetModel(Engine.GetModelForController(InstanceRef), "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_IN_KILLCAM), function(ModelRef)
+		HudRef:updateElementState(GFScoreBaseWidget, {
+			name = "model_validation",
+			menu = HudRef,
+			modelValue = Engine.GetModelValue(ModelRef),
+			modelName = "UIVisibilityBit." .. Enum.UIVisibilityBit.BIT_IN_KILLCAM
 		})
 	end)
 

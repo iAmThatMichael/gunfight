@@ -288,6 +288,7 @@ function giveCustomLoadout()
 function gunfightUpdateDvars()
 {
 	// reset the dvars (for example from fast_restart/map_restart)
+	// TODO: figure out why this isn't actually doing anything
 	if ( util::isFirstRound() )
 	{
 		SetDvar( "scr_gf_class_idx", -1 );
@@ -316,6 +317,7 @@ function gunfightPickClass()
 
 			foreach ( exclIdx in exclClasses )
 			{
+				// just do some sanity check in case some host tries to mess with stuff
 				if ( exclIdx != " " && Int( exclIdx ) > 0 )
 					ArrayRemoveIndex( level.gunfightWeaponTable, Int( exclIdx ) );
 			}
@@ -342,7 +344,8 @@ function gunfightGenerateClasses( tblReference )
 		{
 			reference = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_REFERENCE );
 			// strtok reference for more options?
-			// TODO: something about classes I need to remove indexes that are used or avoid them rather possible randomize and store as a dvar (a numbered list?)
+			// TODO: something about classes I need to remove indexes that are used
+			// or avoid them rather possible randomize and store as a dvar (a numbered list?)
 			if ( tblReference == reference )
 			{
 				primary = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PRIMARY );
@@ -353,7 +356,7 @@ function gunfightGenerateClasses( tblReference )
 				primaryAttachments = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PRIMARY_ATTACHMENTS );
 				secondaryAttachments = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_SECONDARY_ATTACHMENTS );
 
-				level.gunfightWeaponTable[i]["index"] = itemRow - 1;
+				level.gunfightWeaponTable[i]["index"] = itemRow - 1; // have to decrement because itemRow isn't actually the "index"
 				level.gunfightWeaponTable[i]["primary"] = primary;
 				level.gunfightWeaponTable[i]["secondary"] = secondary;
 				level.gunfightWeaponTable[i]["lethal"] = lethal;
@@ -384,6 +387,8 @@ function gunfightFlagUpdate()
 	foreach ( flagObj in level.domFlags )
 	{
 		// delete all flags that isn't the B flag
+		// TODO: maybe just disable them instead? Could be used for
+		// custom gamemodes I guess
 		if ( flagObj.label != "_b" )
 		{
 			flagObj gameobjects::destroy_object();
@@ -468,9 +473,8 @@ function onDeadEvent( team )
 
 function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime )
 {
+	//IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: ^1" + iDamage );
 	thread updateGFHud();
-
-	IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: ^1" + iDamage );
 
 	return iDamage;
 }
@@ -528,7 +532,7 @@ function onTimeLimit()
 
 	// determine the winner from best health
 	winner = ( alliesHealth > axisHealth ? "allies" : "axis" );
-	gf_endGame( winner, &"MOD_ROUND_HAD_MORE_HP" ); // TODO: move to a localized string
+	gf_endGame( winner, &"MOD_ROUND_HAD_MORE_HP" );
 }
 
 function gf_endGame( winningTeam, endReasonText )
@@ -599,22 +603,10 @@ function onTagUse( player )
 
 	// set the origin back to the deathpoint
 	self.targetPlayer SetOrigin( self.origin - (0,0,32) );
+
 	// make the player take some damage
-	/*self.targetPlayer thread [[level.callbackPlayerDamage]](
-			self, // eInflictor The entity that causes the damage.(e.g. a turret)
-			self, // eAttacker The entity that is attacking.
-			35, // iDamage Integer specifying the amount of damage done
-			0, // iDFlags Integer specifying flags that are to be applied to the damage
-			"MOD_PISTOL_BULLET", // sMeansOfDeath Integer specifying the method of death
-			level.weaponNone, // weapon The weapon used to inflict the damage
-			self.origin, // vPoint The point the damage is from?
-			self.angles, // vDir The direction of the damage
-			"none", // sHitLoc The location of the hit
-			self.origin, // vDamageOrigin
-			0, // psOffsetTime The time offset for the damage
-			0, // boneIndex
-			(1,0,0) // vSurfaceNormal
-		);*/
+	// TODO: since we're just overriding the health I believe we need to actually send
+	// some damage through in order for clientside to pick up we're hurt
 	self.targetPlayer.health = 65;
 	self.targetPlayer.maxhealth = 65;
 
@@ -715,37 +707,43 @@ function updateGFHud( team = undefined )
 {
 	level endon ( "game_ended" );
 	// only have one of these threads running to prevent overlap (?)
+	// will this cause any issues when a team is defined?
 	level notify ( "updateGFHud_singleton" );
 	level endon ( "updateGFHud_singleton" );
 	// wait a frame to process the damage completely
 	// TODO: possible bug research post damage callback
-	WAIT_SERVER_FRAME;
+	//WAIT_SERVER_FRAME;
+	util::wait_network_frame();
 
-	allies_health = calculateHealthForTeam( "allies" );
-	allies_count = level.aliveCount[ "allies" ];
+	//if ( !isdefined( team ) )
+	//{
+	alliesHealth = calculateHealthForTeam( "allies" );
+	alliesCount = level.aliveCount[ "allies" ];
 
-	axis_health = calculateHealthForTeam( "axis" );
-	axis_count = level.aliveCount[ "axis" ];
+	axisHealth = calculateHealthForTeam( "axis" );
+	axisCount = level.aliveCount[ "axis" ];
 
 	foreach ( player in level.players )
 	{
-		friendly_team = player.team;
+		friendlyTeam = player.team;
 		enemy_team = util::getOtherTeam( player.team );
 
-		friendly_health = ( friendly_team == "allies" ? allies_health : axis_health );
-		friendly_count = ( friendly_team == "allies" ? allies_count : axis_count );
+		friendlyHealth = ( friendlyTeam == "allies" ? alliesHealth : axisHealth );
+		friendlyCount = ( friendlyTeam == "allies" ? alliesCount : axisCount );
 
-		enemy_health = ( enemy_team == "axis" ? axis_health : allies_health );
-		enemy_count = ( enemy_team == "axis" ? axis_count : allies_count );
+		enemyHealth = ( enemy_team == "axis" ? axisHealth : alliesHealth );
+		enemyCount = ( enemy_team == "axis" ? axisCount : alliesCount );
 
 		// update friendly first
-		player clientfield::set_to_player( "gffriendlyteam_health_num", Int( friendly_health ) );
-		player clientfield::set_to_player( "gffriendlyteam_size_num", Int( friendly_count ) );
+		player clientfield::set_to_player( "gffriendlyteam_health_num", Int( friendlyHealth ) );
+		player clientfield::set_to_player( "gffriendlyteam_size_num", Int( friendlyCount ) );
 
 		// update enemy team after;
-		player clientfield::set_to_player( "gfenemyteam_health_num", Int( enemy_health ) );
-		player clientfield::set_to_player( "gfenemyteam_size_num", Int( enemy_count ) );
+		player clientfield::set_to_player( "gfenemyteam_health_num", Int( enemyHealth ) );
+		player clientfield::set_to_player( "gfenemyteam_size_num", Int( enemyCount ) );
 	}
+	//}
+	// if I go through team route I'm going to be updating nearly the same way, so this method in itself may be inefficient.
 }
 
 function private watchGrenadeUsage()

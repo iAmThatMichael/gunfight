@@ -26,26 +26,26 @@ function gfFriendlyHealth( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap
 {
 	model = CreateUIModel( GetUIModelForController( localClientNum ), "hudItems.gffriendlyteam_health_num" );
 	SetUIModelValue( model, newVal );
-	IPrintLnBold( sprintf( "LCN {0} | Field: {1}, Values: {2} {3}", localClientNum, fieldName, oldVal, newVal ) );
+	//IPrintLnBold( sprintf( "LCN {0} | Field: {1}, Values: {2} {3}", localClientNum, fieldName, oldVal, newVal ) );
 }
 
 function gfFriendlyCount( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump )
 {
 	model = CreateUIModel( GetUIModelForController( localClientNum ), "hudItems.gffriendlyteam_size_num" );
 	SetUIModelValue( model, newVal );
-	IPrintLnBold( sprintf( "LCN {0} | Field: {1}, Values: {2} {3}", localClientNum, fieldName, oldVal, newVal ) );
+	//IPrintLnBold( sprintf( "LCN {0} | Field: {1}, Values: {2} {3}", localClientNum, fieldName, oldVal, newVal ) );
 }
 
 function gfEnemyHealth( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump )
 {
 	model = CreateUIModel( GetUIModelForController( localClientNum ), "hudItems.gfenemyteam_health_num" );
 	SetUIModelValue( model, newVal );
-	IPrintLnBold( sprintf( "LCN {0} | Field: {1}, Values: {2} {3}", localClientNum, fieldName, oldVal, newVal ) );
+	//IPrintLnBold( sprintf( "LCN {0} | Field: {1}, Values: {2} {3}", localClientNum, fieldName, oldVal, newVal ) );
 }
 
 function gfEnemyCount( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump )
 {
 	model = CreateUIModel( GetUIModelForController( localClientNum ), "hudItems.gfenemyteam_size_num" );
 	SetUIModelValue( model, newVal );
-	IPrintLnBold( sprintf( "LCN {0} | Field: {1}, Values: {2} {3}", localClientNum, fieldName, oldVal, newVal ) );
+	//IPrintLnBold( sprintf( "LCN {0} | Field: {1}, Values: {2} {3}", localClientNum, fieldName, oldVal, newVal ) );
 }
