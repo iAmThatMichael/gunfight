@@ -11,3 +11,6 @@ rawfile,mp_mod.cfg
 rawfile,zm_mod.cfg
 // note that if you make changes in the cfg, you need to build this fastfile for the game to get the latest
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+rawfile,ui/t7/utility/lobbyutility.lua
+rawfile,ui/t7/utility/lobbyutilityog.luac
