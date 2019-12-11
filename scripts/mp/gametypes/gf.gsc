@@ -249,12 +249,15 @@ function giveCustomLoadout()
 	secondary = ( isdefined( weaponClass["secondaryAttachments"] ) ? GetWeapon( weaponClass["secondary"], weaponClass["secondaryAttachments"] ) : GetWeapon( weaponClass["secondary"] ) );
 
 	// get equipment
+	// TODO: implement them in a timer(?)
 	lethal = GetWeapon( weaponClass["lethal"] );
 	tactical = GetWeapon( weaponClass["tactical"] );
 
 	// give primary & secondary, set primary as spawn weapon
 	self GiveWeapon( primary );
 	self GiveStartAmmo( primary );
+
+	self SwitchToWeaponImmediate( primary );
 	self SetSpawnWeapon( primary );
 
 	self GiveWeapon( secondary );
@@ -276,10 +279,13 @@ function giveCustomLoadout()
 	self.grenadeTypeSecondary = tactical;
 	self.grenadeTypeSecondaryCount = tacticalCount;
 
-	// disable extra movement
-	self AllowDoubleJump( false );
-	self AllowSlide( false );
-	self AllowWallRun( false );
+	// disable the extra movement if disallowed
+	if ( isdefined( level.gunfightExtraMvmt ) && !level.gunfightExtraMvmt )
+	{
+		self AllowDoubleJump( false );
+		self AllowSlide( false );
+		self AllowWallRun( false );
+	}
 
 	// return the primary weapon
 	return primary;
@@ -297,6 +303,7 @@ function gunfightUpdateDvars()
 
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx" );
 	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl" );
+	level.gunfightExtraMvmt = GetDvarInt( "scr_gf_extra_movement" );
 }
 
 function gunfightPickClass()
@@ -710,9 +717,9 @@ function updateGFHud( team = undefined )
 	// will this cause any issues when a team is defined?
 	level notify ( "updateGFHud_singleton" );
 	level endon ( "updateGFHud_singleton" );
-	// wait a frame to process the damage completely
-	// TODO: possible bug research post damage callback
-	//WAIT_SERVER_FRAME;
+	// TODO: find alternate method for damage (we need post)
+	// because player MAY still be dead once this begins to process, hence the singleton
+	// wait a network frame to process the damage completely
 	util::wait_network_frame();
 
 	//if ( !isdefined( team ) )
