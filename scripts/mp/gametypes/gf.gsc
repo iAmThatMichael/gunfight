@@ -323,9 +323,8 @@ function giveCustomLoadout()
 
 function gunfightUpdateDvars()
 {
-	// reset the dvars (for example from fast_restart/map_restart)
-	// TODO: figure out why this isn't actually doing anything
-	if ( util::isFirstRound() )
+	// reset the class dvars if it's the first round (for example from fast_restart/map_restart)
+	if ( util::getRoundsPlayed() == 0 )
 	{
 		SetDvar( "scr_gf_class_idx", -1 );
 		SetDvar( "scr_gf_class_excl", "" );
