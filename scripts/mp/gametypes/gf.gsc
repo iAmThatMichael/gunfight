@@ -210,8 +210,25 @@ function onPlayerConnect()
 
 function onPlayerDisconnect()
 {
-	globallogic::checkForForfeit();
+	level endon( "game_ended" );
+
+	// ensure to wait a network frame
+	util::wait_network_frame();
+
 	thread updateGFHud();
+	globallogic::checkForForfeit();
+
+	// check to see if for some reason both team had 1 player and both disconnected at the same time (BOTS)
+	if ( level.aliveCount[ "allies" ] == 0 && level.aliveCount[ "axis" ] == 0 )
+	{
+		gf_endGame( "tie", &"MP_ROUND_DRAW" );
+	}
+	else
+	{
+		// check to see if the team I disconnected from has 0 players alive
+		if ( !level.aliveCount[ self.team ] )
+			[[level.onDeadEvent]]( self.team );
+	}
 }
 
 function onSpawnPlayer( predictedSpawn )
@@ -467,7 +484,6 @@ function gunfightTimer()
 
 function onDeadEvent( team )
 {
-	//winningTeam = (losingTeam === game["attackers"] ? game["defenders"] : game["attackers"]);
 	if ( team == game["attackers"] )
 	{
 		gf_endGame( game["defenders"], game["strings"][game["attackers"]+"_eliminated"] );
