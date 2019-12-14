@@ -3,4 +3,7 @@
 *.log
 *.xpak
 
+english/sound
+sound/zone/
+zone/snd/
 zone_source/*/

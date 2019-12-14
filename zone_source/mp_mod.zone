@@ -6,7 +6,8 @@
 // DEBUG
 //scriptparsetree,scripts/mp/gametypes/_globallogic_player.gsc
 //scriptparsetree,scripts/mp/gametypes/_spawning.gsc
-scriptparsetree,scripts/shared/callbacks_shared.csc
+//scriptparsetree,scripts/shared/callbacks_shared.csc
+//scriptparsetree,scripts/shared/util_shared.gsc
 
 // Gametype
 scriptparsetree,scripts/mp/gametypes/gf.csc
@@ -27,3 +28,6 @@ localize,mod
 // UI
 rawfile,ui/uieditor/menus/hud/t7hud_mp.lua
 rawfile,ui/uieditor/widgets/gunfight_score_container.lua
+
+// Sound
+sound,mp_mod

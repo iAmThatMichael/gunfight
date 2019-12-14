@@ -206,29 +206,42 @@ function onPlayerConnect()
 	self thread loadPlayer();
 
 	self killstreaks::hide_compass();
+
+	// because _globallogic::updateGameEvents isn't working have to manually update
+	// all these sorts of functions manually
+	if ( level.gameForfeited && util::totalPlayerCount() >= 1 )
+	{
+		level.gameForfeited = false;
+		level notify( "abort forfeit" );
+	}
 }
 
 function onPlayerDisconnect()
 {
 	level endon( "game_ended" );
 
-	// ensure to wait a network frame
+	// play sound first before code deletes player
+	self thread playGFSound();
+	// save this before the code delete
+	leftTeam = self.team;
+
+	// wait a network frame for various things to process
 	util::wait_network_frame();
 
 	thread updateGFHud();
-	globallogic::checkForForfeit();
 
-	// check to see if for some reason both team had 1 player and both disconnected at the same time (BOTS)
-	if ( level.aliveCount[ "allies" ] == 0 && level.aliveCount[ "axis" ] == 0 )
+	// check to see if game is going to now forfeit
+	if ( !level.gameForfeited )
 	{
-		gf_endGame( "tie", &"MP_ROUND_DRAW" );
+		globallogic::checkForForfeit();
+		// don't end the game if we're now into forfeit
+		if ( level.gameForfeited )
+			return;
 	}
-	else
-	{
-		// check to see if the team I disconnected from has 0 players alive
-		if ( !level.aliveCount[ self.team ] )
-			[[level.onDeadEvent]]( self.team );
-	}
+
+	// check to see if the team disconnected from has 0 players alive
+	if ( globallogic::isTeamAllDead( leftTeam ) )
+		[[level.onDeadEvent]]( leftTeam );
 }
 
 function onSpawnPlayer( predictedSpawn )
@@ -504,6 +517,8 @@ function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath,
 
 function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration )
 {
+	self thread playGFSound();
+
 	thread updateGFHud();
 
 	if ( level.respawnMechanic )
@@ -767,6 +782,22 @@ function updateGFHud( team = undefined )
 	}
 	//}
 	// if I go through team route I'm going to be updating nearly the same way, so this method in itself may be inefficient.
+}
+
+function playGFSound()
+{
+	friendlyStr = "cyber_friendly_dies";
+	enemyStr = "cyber_enemy_dies";
+
+	// only 1 left alive aka we process to final death
+	if ( level.aliveCount[ self.team ] == 1 )
+	{
+		friendlyStr += "_final";
+		enemyStr += "_final";
+	}
+
+	self PlaySoundToTeam( friendlyStr, self.team );
+	self PlaySoundToTeam( enemyStr, util::getOtherTeam( self.team ) );
 }
 
 function private watchGrenadeUsage()
