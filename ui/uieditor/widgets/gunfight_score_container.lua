@@ -16,6 +16,15 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 
 	-- GFScoreBaseWidget:addElement(SituationText)
 
+	local CACImage = RegisterImage("uie_img_t7_menu_customclass_plus")
+	local PlayerImage = RegisterImage("hud_obit_mannequin")
+	local ShadowImage = RegisterImage("lui_bottomshadow")
+	local GridImage = RegisterImage("uie_dots_gridframe")
+	local White = RegisterImage("$white")
+
+	local TotalPlayers = 4 -- getdvar com_maxclients (?) or new value from script instead of seeing total players
+	local PlayersPerTeam = TotalPlayers/2
+
 	local GameModeIcon = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	GameModeIcon:setLeftRight(false, false, -30, 30)
 	GameModeIcon:setTopBottom(true, false, 5, 65)
@@ -28,18 +37,18 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 	local TeamFriendHealthBar = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	TeamFriendHealthBar:setLeftRight(false, false, -60, -157)
 	TeamFriendHealthBar:setTopBottom(true, false, 28, 35)
-	TeamFriendHealthBar:setImage(RegisterImage("$white"))
+	TeamFriendHealthBar:setImage(White)
 	TeamFriendHealthBar:setRGB(0.28, 0.72, 1)
 
 	local TeamFriendHealthBarShadow = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	TeamFriendHealthBarShadow:setLeftRight(false, false, -58, -157)
 	TeamFriendHealthBarShadow:setTopBottom(true, false, 28, 37)
-	TeamFriendHealthBarShadow:setImage(RegisterImage("lui_bottomshadow"))
+	TeamFriendHealthBarShadow:setImage(ShadowImage)
 
 	local TeamFriendHealthBarGrid = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	TeamFriendHealthBarGrid:setLeftRight(false, false, -60, -157)
 	TeamFriendHealthBarGrid:setTopBottom(true, false, 28, 35)
-	TeamFriendHealthBarGrid:setImage(RegisterImage("uie_dots_gridframe"))
+	TeamFriendHealthBarGrid:setImage(GridImage)
 
 	GFScoreBaseWidget:addElement(TeamFriendHealthBarShadow)
 	GFScoreBaseWidget:addElement(TeamFriendHealthBar)
@@ -48,7 +57,7 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 	local TeamFriendHealthPlus = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	TeamFriendHealthPlus:setLeftRight(false, false, -141, -157)
 	TeamFriendHealthPlus:setTopBottom(true, false, 10, 26)
-	TeamFriendHealthPlus:setImage(RegisterImage("uie_img_t7_menu_customclass_plus"))
+	TeamFriendHealthPlus:setImage(CACImage)
 
 	GFScoreBaseWidget:addElement(TeamFriendHealthPlus)
 
@@ -61,55 +70,70 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 	local TeamFriendHealthTextShadow = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	TeamFriendHealthTextShadow:setLeftRight(true, false, 505, 535)
 	TeamFriendHealthTextShadow:setTopBottom(true, false, 11, 26)
-	TeamFriendHealthTextShadow:setImage(RegisterImage("lui_bottomshadow"))
+	TeamFriendHealthTextShadow:setImage(ShadowImage)
 	TeamFriendHealthTextShadow:setAlpha(0.5)
 
 	GFScoreBaseWidget:addElement(TeamFriendHealthTextShadow)
 	GFScoreBaseWidget:addElement(TeamFriendHealthText)
 
-	local TeamFriendSize1 = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
-	TeamFriendSize1:setLeftRight(false, false, -60, -80)
-	TeamFriendSize1:setTopBottom(true, false, 8, 28)
-	TeamFriendSize1:setImage(RegisterImage("hud_obit_mannequin"))
-	TeamFriendSize1:setRGB(0.28, 0.72, 1)
+	-- TODO: clean up lives on both ends possibly make it one function somehow?
+	GFScoreBaseWidget.FriendlyLives = {}
 
-	GFScoreBaseWidget:addElement(TeamFriendSize1)
+	for i = 0, PlayersPerTeam-1 do
+		local PlayerIcon = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
+		PlayerIcon:setLeftRight(false, false, 0 - (60 + (15*i)), 0 - (80 + (15*i)))
+		PlayerIcon:setTopBottom(true, false, 8, 28)
+		PlayerIcon:setImage(PlayerImage)
+		PlayerIcon:setRGB(0.28, 0.72, 1)
+		PlayerIcon:setAlpha(1)
+		-- add into the widget now
+		GFScoreBaseWidget:addElement(PlayerIcon)
+		GFScoreBaseWidget.FriendlyLives[i] = PlayerIcon
+	end
 
-	local TeamFriendSize2 = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
-	TeamFriendSize2:setLeftRight(false, false, -75, -95)
-	TeamFriendSize2:setTopBottom(true, false, 8, 28)
-	TeamFriendSize2:setImage(RegisterImage("hud_obit_mannequin"))
-	TeamFriendSize2:setRGB(0.28, 0.72, 1)
+	GFScoreBaseWidget.EnemyLives = {}
 
-	GFScoreBaseWidget:addElement(TeamFriendSize2)
+	for i = 0, PlayersPerTeam-1 do
+		local PlayerIcon = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
+		PlayerIcon:setLeftRight(false, false, 60 + (15*i), 80 + (15*i))
+		PlayerIcon:setTopBottom(true, false, 8, 28)
+		PlayerIcon:setImage(PlayerImage)
+		PlayerIcon:setRGB(1, 0.39, 0.30)
+		PlayerIcon:setAlpha(1)
+		-- add into the widget now
+		GFScoreBaseWidget:addElement(PlayerIcon)
+		GFScoreBaseWidget.EnemyLives[i] = PlayerIcon
+	end
 
 	local FriendlyHealth = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "hudItems.gffriendlyteam_health_num")
 	local FriendlyTeamSize = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "hudItems.gffriendlyteam_size_num")
 
 	local function TeamFriendlyFunc(ModelRef)
-		if FriendlyHealth and FriendlyTeamSize and
-		Engine.GetModelValue(FriendlyHealth) and Engine.GetModelValue(FriendlyTeamSize) then
-			TeamFriendHealthText:setText(Engine.Localize(Engine.GetModelValue(FriendlyHealth)))
-
-			if Engine.GetModelValue(FriendlyTeamSize) <= 0 then
-				TeamFriendSize1:setAlpha(0)
-				TeamFriendSize2:setAlpha(0)
-			elseif Engine.GetModelValue(FriendlyTeamSize) == 1 then
-				TeamFriendSize1:setAlpha(1)
-				TeamFriendSize2:setAlpha(0)
-			else
-				TeamFriendSize1:setAlpha(1)
-				TeamFriendSize2:setAlpha(1)
+		-- store the updated values
+		local HealthValue = Engine.GetModelValue(FriendlyHealth)
+		local TeamValue = Engine.GetModelValue(FriendlyTeamSize)
+		-- ensure hud exists
+		if FriendlyHealth and FriendlyTeamSize then
+			-- update text
+			TeamFriendHealthText:setText(Engine.Localize(HealthValue))
+			-- foreach of the player icons do stuff
+			for i = 0, PlayersPerTeam-1 do
+				if TeamValue > i  then
+					GFScoreBaseWidget.FriendlyLives[i]:setAlpha(1)
+				else
+					GFScoreBaseWidget.FriendlyLives[i]:beginAnimation("keyframe", 250.000000, true, true, CoD.TweenType.Linear)
+					GFScoreBaseWidget.FriendlyLives[i]:setAlpha(0)
+				end
 			end
 
-			if Engine.GetModelValue(FriendlyHealth) <= 0 then
+			if HealthValue <= 0 then
 				TeamFriendHealthBar:setAlpha(0)
 				return
 			else
 				TeamFriendHealthBar:setAlpha(1)
 			end
 
-			TeamFriendHealthBar:setLeftRight(false, false, -157 + (97 * (Engine.GetModelValue(FriendlyHealth) / 200)), -157)
+			TeamFriendHealthBar:setLeftRight(false, false, -157 + (97 * (HealthValue / 200)), -157)
 		end
 	end
 
@@ -124,18 +148,18 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 	local TeamEnemyHealthBar = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	TeamEnemyHealthBar:setLeftRight(false, false, 60, 157)
 	TeamEnemyHealthBar:setTopBottom(true, false, 28, 35)
-	TeamEnemyHealthBar:setImage(RegisterImage("$white"))
+	TeamEnemyHealthBar:setImage(White)
 	TeamEnemyHealthBar:setRGB(1, 0.39, 0.30)
 
 	local TeamEnemyHealthBarShadow = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	TeamEnemyHealthBarShadow:setLeftRight(false, false, 58, 157)
 	TeamEnemyHealthBarShadow:setTopBottom(true, false, 28, 37)
-	TeamEnemyHealthBarShadow:setImage(RegisterImage("lui_bottomshadow"))
+	TeamEnemyHealthBarShadow:setImage(ShadowImage)
 
 	local TeamEnemyHealthBarGrid = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	TeamEnemyHealthBarGrid:setLeftRight(false, false, 60, 157)
 	TeamEnemyHealthBarGrid:setTopBottom(true, false, 28, 35)
-	TeamEnemyHealthBarGrid:setImage(RegisterImage("uie_dots_gridframe"))
+	TeamEnemyHealthBarGrid:setImage(GridImage)
 
 	GFScoreBaseWidget:addElement(TeamEnemyHealthBarShadow)
 	GFScoreBaseWidget:addElement(TeamEnemyHealthBar)
@@ -144,7 +168,7 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 	local TeamEnemyHealthPlus = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	TeamEnemyHealthPlus:setLeftRight(false, false, 141, 157)
 	TeamEnemyHealthPlus:setTopBottom(true, false, 10, 26)
-	TeamEnemyHealthPlus:setImage(RegisterImage("uie_img_t7_menu_customclass_plus"))
+	TeamEnemyHealthPlus:setImage(CACImage)
 
 	GFScoreBaseWidget:addElement(TeamEnemyHealthPlus)
 
@@ -157,55 +181,41 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 	local TeamEnemyHealthTextShadow = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
 	TeamEnemyHealthTextShadow:setLeftRight(false, true, -535, -505)
 	TeamEnemyHealthTextShadow:setTopBottom(true, false, 11, 26)
-	TeamEnemyHealthTextShadow:setImage(RegisterImage("lui_bottomshadow"))
+	TeamEnemyHealthTextShadow:setImage(ShadowImage)
 	TeamEnemyHealthTextShadow:setAlpha(0.5)
 
 	GFScoreBaseWidget:addElement(TeamEnemyHealthTextShadow)
 	GFScoreBaseWidget:addElement(TeamEnemyHealthText)
 
-	local TeamEnemySize1 = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
-	TeamEnemySize1:setLeftRight(false, false, 60, 80)
-	TeamEnemySize1:setTopBottom(true, false, 8, 28)
-	TeamEnemySize1:setImage(RegisterImage("hud_obit_mannequin"))
-	TeamEnemySize1:setRGB(1, 0.39, 0.30)
-
-	GFScoreBaseWidget:addElement(TeamEnemySize1)
-
-	local TeamEnemySize2 = LUI.UIImage.new(GFScoreBaseWidget, InstanceRef)
-	TeamEnemySize2:setLeftRight(false, false, 75, 95)
-	TeamEnemySize2:setTopBottom(true, false, 8, 28)
-	TeamEnemySize2:setImage(RegisterImage("hud_obit_mannequin"))
-	TeamEnemySize2:setRGB(1, 0.39, 0.30)
-
-	GFScoreBaseWidget:addElement(TeamEnemySize2)
-
 	local EnemyHealth = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "hudItems.gfenemyteam_health_num")
 	local EnemyTeamSize = Engine.CreateModel(Engine.GetModelForController(InstanceRef), "hudItems.gfenemyteam_size_num")
 
 	local function TeamEnemyFunc(ModelRef)
-		if EnemyHealth and EnemyTeamSize and
-		Engine.GetModelValue(EnemyHealth) and Engine.GetModelValue(EnemyTeamSize) then
-			TeamEnemyHealthText:setText(Engine.Localize(Engine.GetModelValue(EnemyHealth)))
-
-			if Engine.GetModelValue(EnemyTeamSize) <= 0 then
-				TeamEnemySize1:setAlpha(0)
-				TeamEnemySize2:setAlpha(0)
-			elseif Engine.GetModelValue(EnemyTeamSize) == 1 then
-				TeamEnemySize1:setAlpha(1)
-				TeamEnemySize2:setAlpha(0)
-			else
-				TeamEnemySize1:setAlpha(1)
-				TeamEnemySize2:setAlpha(1)
+		-- store the updated values
+		local HealthValue = Engine.GetModelValue(EnemyHealth)
+		local TeamValue = Engine.GetModelValue(EnemyTeamSize)
+		-- ensure hud exists
+		if EnemyHealth and EnemyTeamSize then
+			-- update text
+			TeamEnemyHealthText:setText(Engine.Localize(HealthValue))
+			-- foreach of the player icons do stuff
+			for i = 0, PlayersPerTeam-1 do
+				if TeamValue > i  then
+					GFScoreBaseWidget.EnemyLives[i]:setAlpha(1)
+				else
+					GFScoreBaseWidget.EnemyLives[i]:beginAnimation("keyframe", 250.000000, true, true, CoD.TweenType.Linear)
+					GFScoreBaseWidget.EnemyLives[i]:setAlpha(0)
+				end
 			end
 
-			if Engine.GetModelValue(EnemyHealth) <= 0 then
+			if HealthValue <= 0 then
 				TeamEnemyHealthBar:setAlpha(0)
 				return
 			else
 				TeamEnemyHealthBar:setAlpha(1)
 			end
 
-			TeamEnemyHealthBar:setLeftRight(false, false, 157 - (97 * (Engine.GetModelValue(EnemyHealth) / 200)), 157)
+			TeamEnemyHealthBar:setLeftRight(false, false, 157 - (97 * (HealthValue / 200)), 157)
 		end
 	end
 
