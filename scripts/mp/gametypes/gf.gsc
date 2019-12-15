@@ -71,6 +71,7 @@ function main()
 	level.respawnMechanic = GetDvarInt( "scr_gf_respawn", 0 );
 	level.teamBased = true;
 	level.timeLimitOverride = false;
+	level.timePausesWhenInZone = GetGametypeSetting( "timePausesWhenInZone" );
 
 	// Gamemode functions
 	level.giveCustomLoadout = &giveCustomLoadout;
@@ -209,7 +210,7 @@ function onPlayerConnect()
 
 	// because _globallogic::updateGameEvents isn't working have to manually update
 	// all these sorts of functions manually
-	if ( level.gameForfeited && util::totalPlayerCount() >= 1 )
+	if ( level.gameForfeited && util::totalPlayerCount() > 1 )
 	{
 		level.gameForfeited = false;
 		level notify( "abort forfeit" );
@@ -468,29 +469,29 @@ function gunfightTimer()
 	level.timeLimitOverride = true;
 
 	// calculate new time limit
-	additionalTime = 30 * 1000;
+	additionalTime = 20 * 1000;
 	timeLimit = Int( GetTime() + additionalTime );
 
 	// set the new time
 	SetGameEndTime( timeLimit );
 
-	// assign new timelimit var, internal one keeps changing
-	level._timeLimit = timeLimit;
-
-	// don't think MW has a sound effect when flag timer is counting down
-	//level.bombTimer = timeLimit;
-	//thread globallogic_utils::playTickingSound( "mpl_sab_ui_suitcasebomb_timer" );
-
 	while ( game["state"] == "playing" )
 	{
-		timeRemaining = ( level._timeLimit - GetTime() );
+		if ( IS_TRUE( level.timerPaused ) )
+		{
+			level.gfTotalSecondsInZone++;
+			WAIT_SERVER_FRAME;
+			continue;
+		}
+
+		timeRemaining = ( timeLimit - GetTime() );
 
 		if ( timeRemaining <= 0 )
 		{
 			[[level.onTimeLimit]]();
 		}
 
-		wait( 0.5 );
+		wait( 1 );
 	}
 }
 
@@ -646,6 +647,7 @@ function onTagUse( player )
 	// some damage through in order for clientside to pick up we're hurt
 	self.targetPlayer.health = 65;
 	self.targetPlayer.maxhealth = 65;
+	self.targetPlayer SetNormalHealth( (65/100) );
 
 	// wait a server frame to ensure player is back
 	WAIT_SERVER_FRAME;
@@ -683,7 +685,7 @@ function loadPlayer()
 	self endon( "disconnect" );
 	self endon( "spawned" );
 
-	if ( IS_TRUE( self.hasSpawned ) )
+	if ( IS_TRUE( self.hasSpawned ) || !level.inGracePeriod )
 	{
 		return;
 	}
@@ -740,20 +742,16 @@ function calculateHealthForTeam( team )
 	return teamHealth;
 }
 
-function updateGFHud( team = undefined )
+function updateGFHud()
 {
 	level endon ( "game_ended" );
-	// only have one of these threads running to prevent overlap (?)
-	// will this cause any issues when a team is defined?
+
 	level notify ( "updateGFHud_singleton" );
 	level endon ( "updateGFHud_singleton" );
-	// TODO: find alternate method for damage (we need post)
-	// because player MAY still be dead once this begins to process, hence the singleton
+
 	// wait a network frame to process the damage completely
 	util::wait_network_frame();
 
-	//if ( !isdefined( team ) )
-	//{
 	alliesHealth = calculateHealthForTeam( "allies" );
 	alliesCount = level.aliveCount[ "allies" ];
 
@@ -775,28 +773,26 @@ function updateGFHud( team = undefined )
 		player clientfield::set_to_player( "gffriendlyteam_health_num", Int( friendlyHealth ) );
 		player clientfield::set_to_player( "gffriendlyteam_size_num", Int( friendlyCount ) );
 
-		// update enemy team after;
+		// update enemy team after
 		player clientfield::set_to_player( "gfenemyteam_health_num", Int( enemyHealth ) );
 		player clientfield::set_to_player( "gfenemyteam_size_num", Int( enemyCount ) );
 	}
-	//}
-	// if I go through team route I'm going to be updating nearly the same way, so this method in itself may be inefficient.
 }
 
 function playGFSound()
 {
-	friendlyStr = "cyber_friendly_dies";
-	enemyStr = "cyber_enemy_dies";
+	friendlySnd = "cyber_friendly_dies";
+	enemySnd = "cyber_enemy_dies";
 
-	// only 1 left alive aka we process to final death
+	// only 1 left alive aka we now process to final death
 	if ( level.aliveCount[ self.team ] == 1 )
 	{
-		friendlyStr += "_final";
-		enemyStr += "_final";
+		friendlySnd += "_final";
+		enemySnd += "_final";
 	}
 
-	self PlaySoundToTeam( friendlyStr, self.team );
-	self PlaySoundToTeam( enemyStr, util::getOtherTeam( self.team ) );
+	self PlaySoundToTeam( friendlySnd, self.team );
+	self PlaySoundToTeam( enemySnd, util::getOtherTeam( self.team ) );
 }
 
 function private watchGrenadeUsage()
