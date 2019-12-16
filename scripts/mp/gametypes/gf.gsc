@@ -234,9 +234,8 @@ function onPlayerDisconnect()
 	// check to see if game is going to now forfeit
 	if ( !level.gameForfeited )
 	{
-		globallogic::checkForForfeit();
 		// don't end the game if we're now into forfeit
-		if ( level.gameForfeited )
+		if ( globallogic::checkForForfeit() )
 			return;
 	}
 
@@ -449,6 +448,7 @@ function gunfightSpawnFlag()
 	level.gunfightFlag gameobjects::allow_use( "any" );
 	level.gunfightFlag gameobjects::set_model_visibility( true );
 	level.gunfightFlag gameobjects::set_use_time( 2.5 );
+
 	level thread watchForFlagCap();
 }
 
@@ -469,7 +469,7 @@ function gunfightTimer()
 	level.timeLimitOverride = true;
 
 	// calculate new time limit
-	additionalTime = 20 * 1000;
+	additionalTime = 25 * 1000;
 	timeLimit = Int( GetTime() + additionalTime );
 
 	// set the new time
@@ -733,6 +733,7 @@ function calculateHealthForTeam( team )
 	{
 		if ( !IsAlive( player ) )
 			continue;
+
 		if ( player.team != team )
 			continue;
 
