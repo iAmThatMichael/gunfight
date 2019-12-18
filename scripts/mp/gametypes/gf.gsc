@@ -13,6 +13,7 @@
 #using scripts\mp\gametypes\_dogtags;
 #using scripts\mp\gametypes\_globallogic;
 #using scripts\mp\gametypes\_globallogic_audio;
+#using scripts\mp\gametypes\_globallogic_defaults;
 #using scripts\mp\gametypes\_globallogic_score;
 #using scripts\mp\gametypes\_globallogic_spawn;
 #using scripts\mp\gametypes\_globallogic_ui;
@@ -67,6 +68,7 @@ function main()
 	level.endGameOnScoreLimit = false;
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
 	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl", "" );
+	level.gunfightOverTime = false;
 	level.overrideTeamScore = true;
 	level.respawnMechanic = GetDvarInt( "scr_gf_respawn", 0 );
 	level.teamBased = true;
@@ -448,8 +450,22 @@ function gunfightSpawnFlag()
 	level.gunfightFlag gameobjects::allow_use( "any" );
 	level.gunfightFlag gameobjects::set_model_visibility( true );
 	level.gunfightFlag gameobjects::set_use_time( 2.5 );
+	level.gunfightFlag.onBeginUse = &gfFlagOnBeginUse;
+	level.gunfightFlag.onEndUse = &gfFlagOnEndUse;
 
 	level thread watchForFlagCap();
+}
+
+function gfFlagOnBeginUse( player )
+{
+	pause_time();
+	self dom::onBeginUse( player );
+}
+
+function gfFlagOnEndUse( team, player, success )
+{
+	resume_time();
+	self dom::onEndUse( team, player, success );
 }
 
 function watchForFlagCap()
@@ -459,40 +475,6 @@ function watchForFlagCap()
 	level waittill( "b_flag_captured", player );
 
 	gf_endGame( player.team, &"MP_DOM_YOUR_FLAG_WAS_CAPTURED" );
-}
-// TODO: maybe add sound effect for ticks?
-function gunfightTimer()
-{
-	level endon( "game_ended" );
-
-	// override the time
-	level.timeLimitOverride = true;
-
-	// calculate new time limit
-	additionalTime = 25 * 1000;
-	timeLimit = Int( GetTime() + additionalTime );
-
-	// set the new time
-	SetGameEndTime( timeLimit );
-
-	while ( game["state"] == "playing" )
-	{
-		if ( IS_TRUE( level.timerPaused ) )
-		{
-			level.gfTotalSecondsInZone++;
-			WAIT_SERVER_FRAME;
-			continue;
-		}
-
-		timeRemaining = ( timeLimit - GetTime() );
-
-		if ( timeRemaining <= 0 )
-		{
-			[[level.onTimeLimit]]();
-		}
-
-		wait( 1 );
-	}
 }
 
 function onDeadEvent( team )
@@ -547,13 +529,41 @@ function onRoundSwitch()
 	SetDvar( "scr_gf_class_excl", ( level.gunfightClassIdx + " " + level.gunfightClassExcl ) );
 }
 
+function pause_time()
+{
+	if ( level.timePausesWhenInZone )
+	{
+		globallogic_utils::pauseTimer();
+		level.timerPaused = true;
+	}
+}
+
+function resume_time()
+{
+	if ( level.timePausesWhenInZone )
+	{
+    	globallogic_utils::resumeTimer();
+    	level.timerPaused = false;
+	}
+}
+
+function gfGetTimeLimit()
+{
+	// override the game's default timelimit func to add 20s on top of
+	// the timeLimit in order to support timer funcs and a few other bits
+	// that begins to fail if you use level.timeLimitOverride
+	return globallogic_defaults::default_getTimeLimit() + (20/60); // add 20s
+}
+
 function onTimeLimit()
 {
-	if ( !level.timeLimitOverride )
+	if ( !level.gunfightOverTime )
 	{
+		level.gunfightOverTime = true;
+		level.getTimeLimit = &gfGetTimeLimit;
+
 		// show the flag and start the new timer
 		gunfightSpawnFlag();
-		thread gunfightTimer();
 		return;
 	}
 
