@@ -219,7 +219,7 @@ function CoD.GFScoreContainer.new(HudRef, InstanceRef)
 		end
 	end
 
-	Engine.SetModelValue(EnemyValue, 0)
+	Engine.SetModelValue(EnemyHealth, 0)
 	Engine.SetModelValue(EnemyTeamSize, 0)
 
 	GFScoreBaseWidget:subscribeToModel(EnemyHealth, TeamEnemyFunc)

@@ -68,6 +68,7 @@ function main()
 	level.endGameOnScoreLimit = false;
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
 	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl", "" );
+	level.gunfightExtraMvmt = GetDvarInt( "scr_gf_extra_movement", 0 );
 	level.gunfightOverTime = false;
 	level.overrideTeamScore = true;
 	level.respawnMechanic = GetDvarInt( "scr_gf_respawn", 0 );
@@ -127,6 +128,9 @@ function main()
 	game["dialogTime"]["losing_a"] = 0;
 	game["dialogTime"]["losing_b"] = 0;
 	game["dialogTime"]["losing_c"] = 0;
+
+	// uses gungame hud basically removes the specialist weapon from the hud
+	SetDvar( "tu11_enableClassicMode", 1 );
 }
 
 function onStartGameType()
@@ -263,6 +267,9 @@ function onPlayerSpawned()
 	self thread watchGrenadeUsage();
 
 	self killstreaks::hide_compass();
+	// TODO: need to research custom matches vs live matches in
+	// dedicated servers because some code here may break i.e. forfeit
+	//IPrintLn( sprintf( "mpCustomMatch: {0} | rankedMatch: {1}", level.mpCustomMatch, level.rankedMatch ) );
 
 	thread updateGFHud();
 }
@@ -311,8 +318,8 @@ function giveCustomLoadout()
 	self.grenadeTypeSecondary = tactical;
 	self.grenadeTypeSecondaryCount = tacticalCount;
 
-	// disable the extra movement if disallowed
-	if ( isdefined( level.gunfightExtraMvmt ) && !level.gunfightExtraMvmt )
+	// disable T7 movement if needed
+	if ( !level.gunfightExtraMvmt )
 	{
 		self AllowDoubleJump( false );
 		self AllowSlide( false );
@@ -627,7 +634,7 @@ function createPlayerRespawn( attacker )
 	// object - base
 	obj = gameobjects::create_use_object( player.team, trigger, visuals, (0,0,0), IString( "headicon_dead" ) );
 	obj gameobjects::set_use_time( 5 );
-	obj gameobjects::set_use_text( "Press &&1 to Revive Teammate" );
+	obj gameobjects::set_use_text( "Press &&1 to Revive Teammate" ); // TODO: move to localization
 	obj gameobjects::set_use_hint_text( "Press &&1 to Revive Teammate" );
 	obj gameobjects::allow_use( "friendly" );
 	obj gameobjects::set_visible_team( "friendly" );
@@ -646,6 +653,8 @@ function createPlayerRespawn( attacker )
 
 function onTagUse( player )
 {
+	const maxHealth = 65;
+
 	self.targetPlayer.pers["lives"] = 1;
 	self.targetPlayer [[level.spawnClient]]();
 
@@ -655,9 +664,9 @@ function onTagUse( player )
 	// make the player take some damage
 	// TODO: since we're just overriding the health I believe we need to actually send
 	// some damage through in order for clientside to pick up we're hurt
-	self.targetPlayer.health = 65;
-	self.targetPlayer.maxhealth = 65;
-	self.targetPlayer SetNormalHealth( (65/100) );
+	self.targetPlayer.health = maxHealth;
+	self.targetPlayer.maxhealth = maxHealth;
+	self.targetPlayer SetNormalHealth( (maxHealth/100) );
 
 	// wait a server frame to ensure player is back
 	WAIT_SERVER_FRAME;
@@ -712,9 +721,6 @@ function loadPlayer()
 	// satisfy matchRecordLogAdditionalDeathInfo 5th parameter (_globallogic_player)
 	self.class_num = 0;
 
-	// wait for streamer
-	self waitForStreamer();
-
 	// set a default class
 	self.pers["class"] = level.defaultClass;
 	self.curClass = level.defaultClass;
@@ -722,6 +728,9 @@ function loadPlayer()
 	// close all menus
 	self globallogic_ui::closeMenus();
 	self CloseMenu( "ChooseClass_InGame" );
+
+	// wait for streamer
+	self waitForStreamer();
 
 	self thread [[level.spawnClient]]();
 }
