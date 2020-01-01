@@ -681,8 +681,8 @@ function onTagUse( player )
 
 function onCBStartGametype()
 {
-	// act like a CUAV is there in order to prevent the minimap
-	// have to wait until it exists (well the script)
+	// act like a CUAV is there in order to disable the minimap
+	// have to wait until it exists
 	while ( !isdefined( level.activeCounterUAVs ) )
 		WAIT_SERVER_FRAME;
 
@@ -693,8 +693,7 @@ function onCBStartGametype()
 	// notify that CUAV is in
 	level notify( "counter_uav_updated" );
 
-	while ( IS_TRUE( level.inPrematchPeriod ) )
-		WAIT_SERVER_FRAME;
+	level.gracePeriod = 0;
 }
 
 function loadPlayer()
@@ -828,7 +827,7 @@ function private watchGrenadeUsage()
 
 	while ( true )
 	{
-		self waittill ( "grenade_pullback", weapon );
+		self waittill( "grenade_pullback", weapon );
 
 		self._throwingGrenade = weapon;
 	}
