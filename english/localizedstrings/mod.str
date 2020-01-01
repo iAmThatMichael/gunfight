@@ -14,4 +14,7 @@ LANG_ENGLISH	"Eliminate the enemy team."
 REFERENCE		ROUND_HAD_MORE_HP
 LANG_ENGLISH	"Round ended by health difference"
 
+REFERENCE		REVIVE_TEAMMATE
+LANG_ENGLISH	"Hold ^3&&1^7 to revive teammate"
+
 ENDMARKER

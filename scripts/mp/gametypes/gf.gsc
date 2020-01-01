@@ -31,6 +31,7 @@
 #precache( "string", "MOD_OBJECTIVES_GUN_SCORE" );
 #precache( "string", "MOD_OBJECTIVES_GUN_HINT" );
 #precache( "string", "MOD_ROUND_HAD_MORE_HP" );
+#precache( "string", "MOD_REVIVE_TEAMMATE" );
 #precache( "xmodel", "p7_dogtags_enemy" );
 
 #define WEAPON_TABLE 		"gamedata/tables/mp/gf_weapons.csv"
@@ -616,13 +617,9 @@ function createPlayerRespawn( attacker )
 	model = Spawn( "script_model", player.origin );
 	model SetModel( player GetFriendlyDogTagModel() );
 	model DontInterpolate();
-
-	// hide the tags from all teams
-	foreach ( team in level.teams )
-		model HideFromTeam( team );
-
-	// only show to friendly team
+	model HideFromTeam( util::getOtherTeam( player.team ) );
 	model ShowToTeam( player.team );
+
 	visuals = Array( model );
 
 	// trigger
@@ -634,8 +631,8 @@ function createPlayerRespawn( attacker )
 	// object - base
 	obj = gameobjects::create_use_object( player.team, trigger, visuals, (0,0,0), IString( "headicon_dead" ) );
 	obj gameobjects::set_use_time( 5 );
-	obj gameobjects::set_use_text( "Press &&1 to Revive Teammate" ); // TODO: move to localization
-	obj gameobjects::set_use_hint_text( "Press &&1 to Revive Teammate" );
+	obj gameobjects::set_use_text( &"MOD_REVIVE_TEAMMATE" );
+	obj gameobjects::set_use_hint_text( &"MOD_REVIVE_TEAMMATE" );
 	obj gameobjects::allow_use( "friendly" );
 	obj gameobjects::set_visible_team( "friendly" );
 	obj gameobjects::set_owner_team( player.team );
@@ -666,7 +663,6 @@ function onTagUse( player )
 	// some damage through in order for clientside to pick up we're hurt
 	self.targetPlayer.health = maxHealth;
 	self.targetPlayer.maxhealth = maxHealth;
-	self.targetPlayer SetNormalHealth( (maxHealth/100) );
 
 	// wait a server frame to ensure player is back
 	WAIT_SERVER_FRAME;
