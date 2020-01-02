@@ -219,7 +219,7 @@ function onPlayerConnect()
 
 	// because _globallogic::updateGameEvents isn't working have to manually update
 	// all these sorts of functions manually
-	if ( level.gameForfeited && util::totalPlayerCount() > 1 )
+	if ( level.gameForfeited && util::totalPlayerCount() > 0 )
 	{
 		level.gameForfeited = false;
 		level notify( "abort forfeit" );
@@ -232,25 +232,8 @@ function onPlayerDisconnect()
 
 	// play sound first before code deletes player
 	self thread playGFSound();
-	// save this before the code delete
-	leftTeam = self.team;
-
-	// wait a network frame for various things to process
-	util::wait_network_frame();
 
 	thread updateGFHud();
-
-	// check to see if game is going to now forfeit
-	if ( !level.gameForfeited )
-	{
-		// don't end the game if we're now into forfeit
-		if ( globallogic::checkForForfeit() )
-			return;
-	}
-
-	// check to see if the team disconnected from has 0 players alive
-	if ( globallogic::isTeamAllDead( leftTeam ) )
-		[[level.onDeadEvent]]( leftTeam );
 }
 
 function onSpawnPlayer( predictedSpawn )
@@ -489,6 +472,14 @@ function watchForFlagCap()
 
 function onDeadEvent( team )
 {
+	// check to see if game is going to now forfeit
+	if ( !level.gameForfeited )
+	{
+		// don't end the game if we're now into forfeit
+		if ( globallogic::checkForForfeit() )
+			return;
+	}
+
 	if ( team == game["attackers"] )
 	{
 		gf_endGame( game["defenders"], game["strings"][game["attackers"]+"_eliminated"] );
@@ -692,6 +683,16 @@ function onCBStartGametype()
 	level notify( "counter_uav_updated" );
 
 	level.gracePeriod = 0;
+
+	level waittill( "prematch_over" );
+
+	// check to see if game is going to now forfeit
+	if ( !level.gameForfeited )
+	{
+		// don't end the game if we're now into forfeit
+		if ( globallogic::checkForForfeit() )
+			return;
+	}
 }
 
 function loadPlayer()
