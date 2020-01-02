@@ -96,6 +96,8 @@ function main()
 	// DVars
 	// disable deathicons - if respawn is enabled
 	SetDvar( "ui_hud_showdeathicons", !level.respawnMechanic );
+	// disable medals overlaps with the gunfight hud
+	SetDvar( "scr_game_medalsenabled", 0 );
 
 	// LUI
 	clientfield::register( "toplayer", "gffriendlyteam_health_num", VERSION_SHIP, 20, "int" );
@@ -683,8 +685,8 @@ function onCBStartGametype()
 		WAIT_SERVER_FRAME;
 
 	// increment CUAV for both teams
-	level.activeCounterUAVs[ "allies" ]++;
-	level.activeCounterUAVs[ "axis" ]++;
+	level.activeCounterUAVs["allies"]++;
+	level.activeCounterUAVs["axis"]++;
 
 	// notify that CUAV is in
 	level notify( "counter_uav_updated" );
