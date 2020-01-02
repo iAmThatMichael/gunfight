@@ -13,6 +13,9 @@
 scriptparsetree,scripts/mp/gametypes/gf.csc
 scriptparsetree,scripts/mp/gametypes/gf.gsc
 
+// Shared
+scriptparsetree,scripts/shared/medals_shared.gsc
+
 // Bot
 scriptparsetree,scripts/mp/bots/_bot.gsc
 
