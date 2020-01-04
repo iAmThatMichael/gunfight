@@ -1,3 +1,13 @@
+// ==========================================================
+// Gunfight
+//
+// Component: gamemode
+// Purpose: Gunfight gamemode script
+//
+// Author: Michael Akopyan
+// Created: 11/25/2019
+// ==========================================================
+
 #using scripts\shared\array_shared;
 #using scripts\shared\callbacks_shared;
 #using scripts\shared\clientfield_shared;
@@ -493,6 +503,7 @@ function onDeadEvent( team )
 function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime )
 {
 	//IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: ^1" + iDamage );
+	//IPrintLn( sprintf( "{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}", eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon.rootWeapon.name, vPoint, vDir, sHitLoc, psOffsetTime ) );
 	thread updateGFHud();
 
 	return iDamage;
@@ -563,7 +574,7 @@ function onTimeLimit()
 		level.gunfightOverTime = true;
 		level.getTimeLimit = &gfGetTimeLimit;
 
-		// show the flag and start the new timer
+		// show the gunfight B flag
 		gunfightSpawnFlag();
 		return;
 	}
@@ -601,7 +612,7 @@ function createPlayerRespawn( attacker )
 	foreach ( weapon in player GetWeaponsList( true ) )
 	{
 		// grenades are dropped upon death, so we need to ignore the weapon if we were holding it
-		if ( self._throwingGrenade === weapon )
+		if ( player._throwingGrenade === weapon )
 			continue;
 
 		ARRAY_ADD( player._weapons, player::get_weapondata( weapon ) );
@@ -651,14 +662,13 @@ function onTagUse( player )
 	// set the origin back to the deathpoint
 	self.targetPlayer SetOrigin( self.origin - (0,0,32) );
 
-	// make the player take some damage
-	// TODO: since we're just overriding the health I believe we need to actually send
-	// some damage through in order for clientside to pick up we're hurt
-	self.targetPlayer.health = maxHealth;
-	self.targetPlayer.maxhealth = maxHealth;
-
 	// wait a server frame to ensure player is back
 	WAIT_SERVER_FRAME;
+
+	// apply the damage
+	self.targetPlayer.health = maxHealth;
+	//self.targetPlayer [[level.callbackPlayerDamage]]( self.targetPlayer, self.targetPlayer, (100 - maxHealth), 0, "MOD_RIFLE_BULLET", GetWeapon("ar_standard"), (0,0,0), (0,0,0), "torso_upper", (0,0,0), 0, 0, undefined );
+	self.targetPlayer.maxhealth = maxHealth;
 
 	// make sure to take away their inventory before giving it back
 	self.targetPlayer TakeAllWeapons();
@@ -682,6 +692,7 @@ function onCBStartGametype()
 	// notify that CUAV is in
 	level notify( "counter_uav_updated" );
 
+	// disable graceperiod
 	level.gracePeriod = 0;
 
 	level waittill( "prematch_over" );
@@ -771,21 +782,21 @@ function updateGFHud()
 	util::wait_network_frame();
 
 	alliesHealth = calculateHealthForTeam( "allies" );
-	alliesCount = level.aliveCount[ "allies" ];
+	alliesCount = level.aliveCount["allies"];
 
 	axisHealth = calculateHealthForTeam( "axis" );
-	axisCount = level.aliveCount[ "axis" ];
+	axisCount = level.aliveCount["axis"];
 
 	foreach ( player in level.players )
 	{
 		friendlyTeam = player.team;
-		enemy_team = util::getOtherTeam( player.team );
+		enemyTeam = util::getOtherTeam( player.team );
 
 		friendlyHealth = ( friendlyTeam == "allies" ? alliesHealth : axisHealth );
 		friendlyCount = ( friendlyTeam == "allies" ? alliesCount : axisCount );
 
-		enemyHealth = ( enemy_team == "axis" ? axisHealth : alliesHealth );
-		enemyCount = ( enemy_team == "axis" ? axisCount : alliesCount );
+		enemyHealth = ( enemyTeam == "axis" ? axisHealth : alliesHealth );
+		enemyCount = ( enemyTeam == "axis" ? axisCount : alliesCount );
 
 		// update friendly first
 		player clientfield::set_to_player( "gffriendlyteam_health_num", Int( friendlyHealth ) );
