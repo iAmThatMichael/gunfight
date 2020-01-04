@@ -441,9 +441,29 @@ function gunfightFlagUpdate()
 			flagObj gameobjects::allow_use( "none" );
 			flagObj gameobjects::set_model_visibility( false );
 			flagObj.visuals[0] SetModel( teams::get_flag_model( "neutral" ) );
+
 			level.gunfightFlag = flagObj;
+
+			if ( util::getRoundsPlayed() == 0 )
+				level.gunfightFlag thread gunfightFlagDisplay();
 		}
 	}
+}
+
+function gunfightFlagDisplay()
+{
+	// wait for the first player to be in this is when the timer starts
+	level waittill( "first_player_ready", player );
+
+	self gameobjects::enable_object();
+	self gameobjects::set_model_visibility( true );
+
+	// wait some seconds to then hide the flag
+	wait( (level.prematchPeriod - level.prematchPeriod/3) );
+
+	self gameobjects::disable_object();
+	self gameobjects::set_model_visibility( false );
+	// TODO: so as of now the HUD won't display the flag information, find a workaround?
 }
 
 function gunfightSpawnFlag()
