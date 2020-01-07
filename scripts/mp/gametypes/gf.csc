@@ -25,9 +25,9 @@ function onStartGameType()
 {
 }
 
-function on_localplayer_spawned( local_client_num )
+function on_localplayer_spawned( localClientNum )
 {
-	if( self != GetLocalPlayer( local_client_num ) )
+	if( self != GetLocalPlayer( localClientNum ) )
 		return;
 }
 

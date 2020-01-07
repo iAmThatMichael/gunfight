@@ -77,6 +77,7 @@ function main()
 
 	// Gamemode vars
 	level.endGameOnScoreLimit = false;
+	level.gfHideHUD = true;
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
 	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl", "" );
 	level.gunfightExtraMvmt = GetDvarInt( "scr_gf_extra_movement", 0 );
@@ -217,7 +218,7 @@ function onStartGameType()
 
 	// GF stuff
 	gunfightUpdateDvars();
-	gunfightFlagUpdate();
+	gunfightInfoUpdate();
 	gunfightPickClass();
 }
 
@@ -263,11 +264,14 @@ function onPlayerSpawned()
 	self thread watchGrenadeUsage();
 
 	self killstreaks::hide_compass();
-	// TODO: need to research custom matches vs live matches in
-	// dedicated servers because some code here may break i.e. forfeit
-	//IPrintLn( sprintf( "mpCustomMatch: {0} | rankedMatch: {1}", level.mpCustomMatch, level.rankedMatch ) );
 
 	thread updateGFHud();
+
+	if ( level.gfHideHUD )
+	{
+		self SetClientUIVisibilityFlag( "hud_visible", 0 );
+		self SetClientUIVisibilityFlag( "weapon_hud_visible", 0 );
+	}
 }
 
 function giveCustomLoadout()
@@ -423,7 +427,7 @@ function gunfightGenerateClasses( tblReference )
 	}
 }
 
-function gunfightFlagUpdate()
+function gunfightInfoUpdate()
 {
 	foreach ( flagObj in level.domFlags )
 	{
@@ -448,6 +452,8 @@ function gunfightFlagUpdate()
 				level.gunfightFlag thread gunfightFlagDisplay();
 		}
 	}
+
+	level thread gunfightHUDToggle();
 }
 
 function gunfightFlagDisplay()
@@ -463,7 +469,28 @@ function gunfightFlagDisplay()
 
 	self gameobjects::disable_object();
 	self gameobjects::set_model_visibility( false );
+
 	// TODO: so as of now the HUD won't display the flag information, find a workaround?
+}
+
+function gunfightHUDToggle()
+{
+	// wait for the first player to be in this is when the timer starts
+	level waittill( "first_player_ready", player );
+
+	if ( util::getRoundsPlayed() == 0 || game["switchedsides"] )
+		level.gfHideHUD = true;
+
+	// wait some seconds to then hide the flag
+	wait( (level.prematchPeriod - level.prematchPeriod/3) );
+
+	level.gfHideHUD = false;
+
+	foreach ( player in level.players )
+	{
+		player SetClientUIVisibilityFlag( "hud_visible", 1 );
+		player SetClientUIVisibilityFlag( "weapon_hud_visible", 1 );
+	}
 }
 
 function gunfightSpawnFlag()
@@ -686,8 +713,11 @@ function onTagUse( player )
 	WAIT_SERVER_FRAME;
 
 	// apply the damage
-	self.targetPlayer.health = maxHealth;
+	// TODO: figure out the issue where HUD doesn't update as well it takes the damage
+	// but the HUD/pain fx doesn't occur
 	//self.targetPlayer [[level.callbackPlayerDamage]]( self.targetPlayer, self.targetPlayer, (100 - maxHealth), 0, "MOD_RIFLE_BULLET", GetWeapon("ar_standard"), (0,0,0), (0,0,0), "torso_upper", (0,0,0), 0, 0, undefined );
+
+	self.targetPlayer.health = maxHealth;
 	self.targetPlayer.maxhealth = maxHealth;
 
 	// make sure to take away their inventory before giving it back
@@ -775,6 +805,7 @@ function waitForStreamer()
 
 function calculateHealthForTeam( team )
 {
+	// TODO: ask mike if I need to put endon singleton here as well....
 	teamHealth = 0;
 
 	foreach ( player in level.players )
