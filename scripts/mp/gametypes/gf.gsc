@@ -588,15 +588,6 @@ function onOneLeftEvent( team )
 
 function warnLastPlayer( team )
 {
-	if ( !isdefined( level.warnedLastPlayer ) )
-		level.warnedLastPlayer = [];
-
-	if ( isdefined( level.warnedLastPlayer[team] ) )
-		return;
-
-	level.warnedLastPlayer[team] = true;
-
-
 	foreach ( player in level.players )
 	{
 		if ( isdefined( player.pers["team"] ) && player.pers["team"] == team && isdefined( player.pers["class"] ) )
