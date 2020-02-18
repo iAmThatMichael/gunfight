@@ -274,6 +274,10 @@ function onPlayerSpawned()
 
 	if ( level.gfHideHUD )
 	{
+		self SetLowReady( true );
+		self FreezeControlsAllowLook( true );
+		self util::freeze_player_controls( false );
+
 		self SetClientUIVisibilityFlag( "hud_visible", 0 );
 		self SetClientUIVisibilityFlag( "weapon_hud_visible", 0 );
 	}
@@ -434,7 +438,7 @@ function gunfightGenerateClasses( tblReference )
 				}
 
 				// DEBUG
-				//IPrintLnBold( sprintf( "IDX: {0} | Primary: {1} | Secondary: {2} | Lethal: {3} | Tactical: {4} | Perks: {5} | Reference: {6} | ARRAY IDX: {7}", itemRow - 1, primary, secondary, lethal, tactical, perks, reference, i ) );
+				//IPrintLn( sprintf( "IDX: {0} | Primary: {1} | Secondary: {2} | Lethal: {3} | Tactical: {4} | Perks: {5} | Reference: {6} | ARRAY IDX: {7}", itemRow - 1, primary, secondary, lethal, tactical, perks, reference, i ) );
 			}
 		}
 	}
@@ -501,6 +505,7 @@ function gunfightHUDToggle()
 
 	foreach ( player in level.players )
 	{
+		player SetLowReady( false );
 		player SetClientUIVisibilityFlag( "hud_visible", 1 );
 		player SetClientUIVisibilityFlag( "weapon_hud_visible", 1 );
 	}
@@ -762,6 +767,14 @@ function onCBStartGametype()
 
 	level waittill( "prematch_over" );
 
+	foreach ( player in level.players )
+	{
+		if ( GetDvarInt( "scr_gf_dev_stop_bots", 1 ) && player IsTestClient() )
+			continue;
+
+		player FreezeControlsAllowLook( false );
+	}
+
 	// check to see if game is going to now forfeit
 	if ( !level.gameForfeited )
 	{
@@ -795,16 +808,16 @@ function loadPlayer()
 	// satisfy matchRecordLogAdditionalDeathInfo 5th parameter (_globallogic_player)
 	self.class_num = 0;
 
+	// wait for streamer
+	self waitForStreamer();
+
 	// set a default class
 	self.pers["class"] = level.defaultClass;
 	self.curClass = level.defaultClass;
 
 	// close all menus
 	self globallogic_ui::closeMenus();
-	self CloseMenu( "ChooseClass_InGame" );
-
-	// wait for streamer
-	self waitForStreamer();
+	self CloseMenu( MENU_CHANGE_CLASS );
 
 	self thread [[level.spawnClient]]();
 }
@@ -820,7 +833,6 @@ function waitForStreamer()
 
 function calculateHealthForTeam( team )
 {
-	// TODO: ask mike if I need to put endon singleton here as well....
 	teamHealth = 0;
 
 	foreach ( player in level.players )
