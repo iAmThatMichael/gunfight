@@ -1,6 +1,9 @@
-VERSION				"1"
-CONFIG				"C:\projects\cod\t7\bin\StringEd.cfg"
-FILENOTES			""
+VERSION			"1"
+CONFIG			"C:\projects\cod\t7\bin\StringEd.cfg"
+FILENOTES		""
+
+REFERENCE		MADE_BY
+LANG_ENGLISH	"Created by ^5@iAmThatMichael^7"
 
 REFERENCE 		OBJECTIVES_GUN
 LANG_ENGLISH	"Gunfight"

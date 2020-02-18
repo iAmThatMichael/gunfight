@@ -14,6 +14,7 @@
 #using scripts\shared\gameobjects_shared;
 #using scripts\shared\math_shared;
 #using scripts\shared\player_shared;
+#using scripts\shared\popups_shared;
 #using scripts\shared\util_shared;
 
 #using scripts\mp\_util;
@@ -37,6 +38,7 @@
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 
+#precache( "string", "MOD_MADE_BY" );
 #precache( "string", "MOD_OBJECTIVES_GUN" );
 #precache( "string", "MOD_OBJECTIVES_GUN_SCORE" );
 #precache( "string", "MOD_OBJECTIVES_GUN_HINT" );
@@ -81,6 +83,7 @@ function main()
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
 	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl", "" );
 	level.gunfightExtraMvmt = GetDvarInt( "scr_gf_extra_movement", 0 );
+	level.gunfightSingleWeapon = GetDvarInt( "scr_gf_single_weapon", 0 );
 	level.gunfightOverTime = false;
 	level.overrideTeamScore = true;
 	level.respawnMechanic = GetDvarInt( "scr_gf_respawn", 0 );
@@ -220,6 +223,8 @@ function onStartGameType()
 	gunfightUpdateDvars();
 	gunfightInfoUpdate();
 	gunfightPickClass();
+
+	thread gunfightMessage();
 }
 
 function onPlayerConnect()
@@ -342,16 +347,24 @@ function gunfightUpdateDvars()
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx" );
 	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl" );
 	level.gunfightExtraMvmt = GetDvarInt( "scr_gf_extra_movement" );
+	level.gunfightSingleWeapon = GetDvarInt( "scr_gf_single_weapon" );
 }
 
 function gunfightPickClass()
 {
 	// TODO: possibly add specific playlist-style only tiers? i.e. shotguns classes only
-	tiers = [];
-	ARRAY_ADD( tiers, "random" );
-	//ARRAY_ADD( tiers, "random_<>" );
+	classRef = [];
+	if ( !level.gunfightSingleWeapon )
+	{
+		ARRAY_ADD( classRef, "random" );
+		//ARRAY_ADD( classRef, "random_<>" );
+	}
+	else
+	{
+		ARRAY_ADD( classRef, "single_weapon" );
+	}
 
-	gunfightGenerateClasses( array::random( tiers ) );
+	gunfightGenerateClasses( array::random( classRef ) );
 
 	if ( level.gunfightClassIdx == -1 )
 	{
@@ -581,10 +594,12 @@ function onRoundSwitch()
 
 	level.halftimeType = "halftime";
 	game["switchedsides"] = !game["switchedsides"];
-
+	// don't reset if SW
+	if ( level.gunfightSingleWeapon )
+		return;
 	// reset the class dvar
 	SetDvar( "scr_gf_class_idx", -1 );
-	// add this class to excl classes
+	// add this class to excluded classes
 	SetDvar( "scr_gf_class_excl", ( level.gunfightClassIdx + " " + level.gunfightClassExcl ) );
 }
 
@@ -616,7 +631,7 @@ function gfGetTimeLimit()
 
 function onTimeLimit()
 {
-	if ( !level.gunfightOverTime )
+	if ( !level.gunfightOverTime && !level.gunfightSingleWeapon )
 	{
 		level.gunfightOverTime = true;
 		level.getTimeLimit = &gfGetTimeLimit;
@@ -941,5 +956,18 @@ function private bounce()
 		self.visuals[0] RotateYaw( 180, 0.5 );
 
 		wait( 0.5 );
+	}
+}
+
+function gunfightMessage()
+{
+	while ( true )
+	{
+		msg = level util::waittill_any_return( "prematch_over", "game_ended" );
+
+		if ( msg == "prematch_over" && util::getRoundsPlayed() == 0 )
+		{
+			level thread popups::DisplayTeamMessageToAll( &"MOD_MADE_BY", level.players[0] );
+		}
 	}
 }

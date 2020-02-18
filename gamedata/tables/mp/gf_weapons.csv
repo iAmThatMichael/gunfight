@@ -11,3 +11,4 @@ slot,primary,secondary,lethal,tactical,perk,reference,primaryAttachments,seconda
 9,ar_longburst,pistol_burst,incendiary_grenade,null_offhand_secondary,,random,reflex+steadyaim+quickdraw,extclip
 10,smg_ppsh,pistol_m1911,null_offhand_primary,null_offhand_secondary,,random,,
 11,special_discgun,bare_hands,hatchet,null_offhand_secondary,,random,,
+12,bare_hands,none,hatchet,null_offhand_secondary,,single_weapon,,
