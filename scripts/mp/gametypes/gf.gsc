@@ -19,8 +19,6 @@
 
 #using scripts\mp\_util;
 
-#using scripts\mp\killstreaks\_killstreaks;
-
 #using scripts\mp\gametypes\_dogtags;
 #using scripts\mp\gametypes\_globallogic;
 #using scripts\mp\gametypes\_globallogic_audio;
@@ -33,6 +31,8 @@
 #using scripts\mp\gametypes\_spawnlogic;
 #using scripts\mp\gametypes\dom;
 
+#using scripts\mp\killstreaks\_killstreaks;
+
 #using scripts\mp\teams\_teams;
 
 #insert scripts\shared\shared.gsh;
@@ -44,6 +44,7 @@
 #precache( "string", "MOD_OBJECTIVES_GUN_HINT" );
 #precache( "string", "MOD_ROUND_HAD_MORE_HP" );
 #precache( "string", "MOD_REVIVE_TEAMMATE" );
+#precache( "string", "SCORE_LAST_ALIVE" );
 #precache( "xmodel", "p7_dogtags_enemy" );
 
 #define WEAPON_TABLE 		"gamedata/tables/mp/gf_weapons.csv"
@@ -94,6 +95,7 @@ function main()
 	// Gamemode functions
 	level.giveCustomLoadout = &giveCustomLoadout;
 	level.onDeadEvent = &onDeadEvent;
+	level.onOneLeftEvent = &onOneLeftEvent;
 	level.onPlayerDamage = &onPlayerDamage;
 	level.onPlayerKilled = &onPlayerKilled;
 	level.onRoundSwitch = &onRoundSwitch;
@@ -465,8 +467,11 @@ function gunfightInfoUpdate()
 
 			level.gunfightFlag = flagObj;
 
-			if ( util::getRoundsPlayed() == 0 )
+			if ( util::getRoundsPlayed() == 0 && !level.gunfightSingleWeapon )
 				level.gunfightFlag thread gunfightFlagDisplay();
+
+			if ( level.gunfightSingleWeapon )
+				level.gunfightFlag thread gunfightFlagDropWeapon();
 		}
 	}
 
@@ -488,6 +493,17 @@ function gunfightFlagDisplay()
 	self gameobjects::set_model_visibility( false );
 
 	// TODO: so as of now the HUD won't display the flag information, find a workaround?
+}
+
+function gunfightFlagDropWeapon()
+{
+	// wait for the first player to be in this is when the timer starts
+	level waittill( "first_player_ready", player );
+
+	str_weapon = "pistol_m1911";
+	s_weapon = GetWeapon( str_weapon );
+	weapon = Spawn( "weapon_" + str_weapon + "_mp", self.origin );
+	weapon ItemWeaponSetAmmo( s_weapon.clipSize, 0 );
 }
 
 function gunfightHUDToggle()
@@ -563,6 +579,46 @@ function onDeadEvent( team )
 	{
 		gf_endGame( game["attackers"], game["strings"][game["defenders"]+"_eliminated"] );
 	}
+}
+
+function onOneLeftEvent( team )
+{
+	warnLastPlayer( team );
+}
+
+function warnLastPlayer( team )
+{
+	if ( !isdefined( level.warnedLastPlayer ) )
+		level.warnedLastPlayer = [];
+
+	if ( isdefined( level.warnedLastPlayer[team] ) )
+		return;
+
+	level.warnedLastPlayer[team] = true;
+
+
+	foreach ( player in level.players )
+	{
+		if ( isdefined( player.pers["team"] ) && player.pers["team"] == team && isdefined( player.pers["class"] ) )
+		{
+			if ( player.sessionstate == "playing" && !player.afk )
+			{
+				player thread giveLastAttackerWarning( team );
+				return;
+			}
+		}
+	}
+}
+
+function giveLastAttackerWarning( team )
+{
+	self endon("death");
+	self endon("disconnect");
+
+	self globallogic_audio::leader_dialog_on_player( "roundEncourageLastPlayer" );
+	self PlayLocalSound( "mus_last_stand" );
+
+	LUINotifyEvent( &"player_callout", 2, &"SCORE_LAST_ALIVE", self.entnum );
 }
 
 function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime )
