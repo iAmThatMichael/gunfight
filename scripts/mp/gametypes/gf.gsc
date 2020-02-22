@@ -122,6 +122,8 @@ function main()
 	clientfield::register( "toplayer", "gfenemyteam_health_num", VERSION_SHIP, 20, "int" );
 	clientfield::register( "toplayer", "gfenemyteam_size_num", VERSION_SHIP, 2, "int" );
 
+	clientfield::register( "scriptmover", "model_dr", VERSION_SHIP, 1, "int" );
+
 	// DOM stuff
 	game["dialog"]["securing_a"] = "domFriendlySecuringA";
 	game["dialog"]["securing_b"] = "domFriendlySecuringB";
@@ -277,7 +279,7 @@ function onPlayerSpawned()
 	if ( level.gfHideHUD )
 	{
 		self SetLowReady( true );
-		self FreezeControlsAllowLook( true );
+		//self FreezeControlsAllowLook( true ); // TODO: disable for release as it stops noclip/ufo ...
 		self util::freeze_player_controls( false );
 
 		self SetClientUIVisibilityFlag( "hud_visible", 0 );
@@ -354,6 +356,9 @@ function gunfightUpdateDvars()
 	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl" );
 	level.gunfightExtraMvmt = GetDvarInt( "scr_gf_extra_movement" );
 	level.gunfightSingleWeapon = GetDvarInt( "scr_gf_single_weapon" );
+
+	if ( level.gunfightSingleWeapon )
+		level.disableWeaponDrop = false;
 }
 
 function gunfightPickClass()
@@ -486,24 +491,15 @@ function gunfightFlagDisplay()
 	self gameobjects::enable_object();
 	self gameobjects::set_model_visibility( true );
 
+	self.visuals[0] clientfield::set( "model_dr", 1 );
+
 	// wait some seconds to then hide the flag
 	wait( (level.prematchPeriod - level.prematchPeriod/3) );
 
 	self gameobjects::disable_object();
 	self gameobjects::set_model_visibility( false );
 
-	// TODO: so as of now the HUD won't display the flag information, find a workaround?
-}
-
-function gunfightFlagDropWeapon()
-{
-	// wait for the first player to be in this is when the timer starts
-	level waittill( "first_player_ready", player );
-
-	str_weapon = "pistol_m1911";
-	s_weapon = GetWeapon( str_weapon );
-	weapon = Spawn( "weapon_" + str_weapon + "_mp", self.origin );
-	weapon ItemWeaponSetAmmo( s_weapon.clipSize, 0 );
+	self.visuals[0] clientfield::set( "model_dr", 0 );
 }
 
 function gunfightHUDToggle()
@@ -525,6 +521,17 @@ function gunfightHUDToggle()
 		player SetClientUIVisibilityFlag( "hud_visible", 1 );
 		player SetClientUIVisibilityFlag( "weapon_hud_visible", 1 );
 	}
+}
+
+function gunfightFlagDropWeapon()
+{
+	// wait for the first player to be in this is when the timer starts
+	level waittill( "first_player_ready", player );
+
+	str_weapon = "pistol_m1911";
+	s_weapon = GetWeapon( str_weapon );
+	weapon = Spawn( "weapon_" + str_weapon + "_mp", self.origin );
+	weapon ItemWeaponSetAmmo( s_weapon.clipSize, 0 );
 }
 
 function gunfightSpawnFlag()
@@ -898,10 +905,10 @@ function calculateHealthForTeam( team )
 
 function updateGFHud()
 {
-	level endon ( "game_ended" );
+	level endon( "game_ended" );
 
-	level notify ( "updateGFHud_singleton" );
-	level endon ( "updateGFHud_singleton" );
+	level notify( "updateGFHud_singleton" );
+	level endon( "updateGFHud_singleton" );
 
 	// wait a network frame to process the damage completely
 	util::wait_network_frame();
@@ -1004,7 +1011,7 @@ function private bounce()
 	bottomPos = self.curOrigin;
 	topPos = self.curOrigin + (0,0,12);
 
-	while( isdefined( self ) )
+	while ( isdefined( self ) )
 	{
 		self.visuals[0] MoveTo( topPos, 0.5, 0.15, 0.15 );
 		self.visuals[0] RotateYaw( 180, 0.5 );

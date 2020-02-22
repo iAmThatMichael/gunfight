@@ -1,7 +1,9 @@
+#using scripts\codescripts\struct;
 #using scripts\shared\callbacks_shared;
 #using scripts\shared\clientfield_shared;
-#using scripts\codescripts\struct;
+#using scripts\shared\duplicaterender_mgr;
 
+#insert scripts\shared\duplicaterender.gsh;
 #insert scripts\shared\shared.gsh;
 #insert scripts\shared\version.gsh;
 
@@ -12,6 +14,8 @@ function main()
 
 	clientfield::register( "toplayer", "gfenemyteam_health_num", VERSION_SHIP, 20, "int", &gfEnemyHealth, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 	clientfield::register( "toplayer", "gfenemyteam_size_num", VERSION_SHIP, 2, "int", &gfEnemyCount, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
+
+    clientfield::register( "scriptmover", "model_dr", VERSION_SHIP, 1, "int", &dr_on_model, !CF_HOST_ONLY, !CF_CALLBACK_ZERO_ON_NEW_ENT );
 
 	callback::on_localplayer_spawned( &on_localplayer_spawned );
 }
@@ -57,4 +61,9 @@ function gfEnemyCount( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fi
 	model = CreateUIModel( GetUIModelForController( localClientNum ), "hudItems.gfenemyteam_size_num" );
 	SetUIModelValue( model, newVal );
 	//IPrintLnBold( sprintf( "LCN {0} | Field: {1}, Values: {2} {3}", localClientNum, fieldName, oldVal, newVal ) );
+}
+
+function dr_on_model( localClientNum, oldVal, newVal, bNewEnt, bInitialSnap, fieldName, bWasTimeJump )
+{
+	self duplicate_render::update_dr_flag( localClientNum, "unplaceable", newVal );
 }
