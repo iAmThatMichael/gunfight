@@ -74,7 +74,7 @@ function main()
 	gameobjects::register_allowed_gameobject( level.gameType );
 	gameobjects::register_allowed_gameobject( "dom" ); // need dom flags
 
-	globallogic_audio::set_leader_gametype_dialog( undefined, undefined, "gameBoost", "gameBoost" );
+	globallogic_audio::set_leader_gametype_dialog( "startTeamDeathmatch", "hcStartTeamDeathmatch", "sfgStartAttack", "sfgStartAttack" );
 
 	globallogic::setvisiblescoreboardcolumns( "score", "kills", "deaths", "kdratio", "captures" );
 
@@ -87,7 +87,7 @@ function main()
 	level.gunfightSingleWeapon = GetDvarInt( "scr_gf_single_weapon", 0 );
 	level.gunfightOverTime = false;
 	level.overrideTeamScore = true;
-	level.respawnMechanic = GetDvarInt( "scr_gf_respawn", 0 );
+	level.gunfightRespawn = GetDvarInt( "scr_gf_respawn", 0 );
 	level.teamBased = true;
 	level.timeLimitOverride = false;
 	level.timePausesWhenInZone = GetGametypeSetting( "timePausesWhenInZone" );
@@ -111,7 +111,7 @@ function main()
 
 	// DVars
 	// disable deathicons - if respawn is enabled
-	SetDvar( "ui_hud_showdeathicons", !level.respawnMechanic );
+	SetDvar( "ui_hud_showdeathicons", !level.gunfightRespawn );
 	// disable medals overlaps with the gunfight hud
 	SetDvar( "scr_game_medalsenabled", 0 );
 
@@ -634,7 +634,7 @@ function onPlayerKilled( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, v
 
 	thread updateGFHud();
 
-	if ( level.respawnMechanic )
+	if ( level.gunfightRespawn )
 	{
 		should_spawn_tags = self dogtags::should_spawn_tags( eInflictor, attacker, iDamage, sMeansOfDeath, weapon, vDir, sHitLoc, psOffsetTime, deathAnimDuration );
 
@@ -862,9 +862,6 @@ function loadPlayer()
 	// satisfy matchRecordLogAdditionalDeathInfo 5th parameter (_globallogic_player)
 	self.class_num = 0;
 
-	// wait for streamer
-	self waitForStreamer();
-
 	// set a default class
 	self.pers["class"] = level.defaultClass;
 	self.curClass = level.defaultClass;
@@ -872,6 +869,9 @@ function loadPlayer()
 	// close all menus
 	self globallogic_ui::closeMenus();
 	self CloseMenu( MENU_CHANGE_CLASS );
+
+	// wait for streamer
+	self waitForStreamer();
 
 	self thread [[level.spawnClient]]();
 }
