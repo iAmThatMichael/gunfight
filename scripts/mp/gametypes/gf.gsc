@@ -339,6 +339,9 @@ function giveCustomLoadout()
 		self AllowWallRun( false );
 	}
 
+	// give flak jacket for less lethal equipment damage
+	self SetPerk( "specialty_flakjacket" );
+
 	// return the primary weapon
 	return primary;
 }
