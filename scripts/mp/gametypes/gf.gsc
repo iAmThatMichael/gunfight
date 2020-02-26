@@ -526,10 +526,10 @@ function gunfightFlagDropWeapon()
 	// wait for the first player to be in this is when the timer starts
 	level waittill( "first_player_ready", player );
 
-	str_weapon = "ar_standard";
-	s_weapon = GetWeapon( str_weapon );
-	weapon = Spawn( "weapon_" + str_weapon + "_mp", self.origin );
-	weapon ItemWeaponSetAmmo( s_weapon.clipSize, 0 );
+	const WEAPON_NAME = "ar_standard";
+	eWeapon = GetWeapon( WEAPON_NAME );
+	weapon = Spawn( "weapon_" + WEAPON_NAME + "_mp", self.origin );
+	weapon ItemWeaponSetAmmo( eWeapon.clipSize, 0 );
 }
 
 function gunfightSpawnFlag()
