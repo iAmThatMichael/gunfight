@@ -84,10 +84,10 @@ function main()
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
 	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl", "" );
 	level.gunfightExtraMvmt = GetDvarInt( "scr_gf_extra_movement", 0 );
+	level.gunfightRespawn = GetDvarInt( "scr_gf_respawn", 0 );
 	level.gunfightSingleWeapon = GetDvarInt( "scr_gf_single_weapon", 0 );
 	level.gunfightOverTime = false;
 	level.overrideTeamScore = true;
-	level.gunfightRespawn = GetDvarInt( "scr_gf_respawn", 0 );
 	level.teamBased = true;
 	level.timeLimitOverride = false;
 	level.timePausesWhenInZone = GetGametypeSetting( "timePausesWhenInZone" );
@@ -413,8 +413,6 @@ function gunfightGenerateClasses( tblReference )
 		{
 			reference = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_REFERENCE );
 			// strtok reference for more options?
-			// TODO: something about classes I need to remove indexes that are used
-			// or avoid them rather possible randomize and store as a dvar (a numbered list?)
 			if ( tblReference == reference )
 			{
 				primary = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PRIMARY );
@@ -528,7 +526,7 @@ function gunfightFlagDropWeapon()
 	// wait for the first player to be in this is when the timer starts
 	level waittill( "first_player_ready", player );
 
-	str_weapon = "pistol_m1911";
+	str_weapon = "ar_standard";
 	s_weapon = GetWeapon( str_weapon );
 	weapon = Spawn( "weapon_" + str_weapon + "_mp", self.origin );
 	weapon ItemWeaponSetAmmo( s_weapon.clipSize, 0 );
