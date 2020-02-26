@@ -264,6 +264,8 @@ local function PostLoadCallback(HudRef, InstanceRef)
         end
     end
 
+    HudRef.SafeAreaContainer.ScrStkContainer:hide()
+
     HudRef:subscribeToGlobalModel(InstanceRef, "PerController", "playerAbilities.playerGadget3.name", ArmBladeCallback)
 end
 
