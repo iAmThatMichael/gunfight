@@ -279,7 +279,7 @@ function onPlayerSpawned()
 	if ( level.gfHideHUD )
 	{
 		self SetLowReady( true );
-		//self FreezeControlsAllowLook( true ); // TODO: disable for release as it stops noclip/ufo ...
+		self FreezeControlsAllowLook( true );
 		self util::freeze_player_controls( false );
 
 		self SetClientUIVisibilityFlag( "hud_visible", 0 );

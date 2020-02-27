@@ -1,0 +1,22 @@
+{
+    "_meta": {},
+    "data": [
+        {
+            "comments": "Keep GameType Index Between 200 - 250 For Readability",
+            "id": 20,
+            "index": 201,
+            "session_mode": "mp",
+            "name": "gf",
+            "name_ref": "MOD_OBJECTIVES_GUN",
+            "name_ref_caps": "MOD_OBJECTIVES_GUN_CAPS",
+            "hardcore_name_ref": "MOD_OBJECTIVES_HC_GUN",
+            "description": "MOD_OBJECTIVES_GUN_SCORE",
+            "hardcore_available": "YES",
+            "is_team_based": "YES",
+            "groupname": "standard",
+            "image": "faction_allies",
+            "loading_screen_image": "faction_allies",
+            "presence_ref": "MOD_OBJECTIVES_GUN"
+        }
+    ]
+}

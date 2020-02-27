@@ -34,3 +34,6 @@ rawfile,ui/uieditor/widgets/gunfight_score_container.lua
 
 // Sound
 sound,mp_mod
+
+image,faction_allies
+image,faction_axis

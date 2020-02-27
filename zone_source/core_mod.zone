@@ -14,3 +14,9 @@ rawfile,zm_mod.cfg
 
 rawfile,ui/t7/utility/lobbyutility.lua
 rawfile,ui/t7/utility/lobbyutilityog.luac
+
+// Tables
+structuredtable,gamedata/tables/common/mod_game_types.json
+
+// Localization
+localize,mod
