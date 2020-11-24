@@ -83,6 +83,7 @@ function main()
 	level.gfHideHUD = true;
 	level.gunfightClassIdx = GetDvarInt( "scr_gf_class_idx", -1 );
 	level.gunfightClassExcl = GetDvarString( "scr_gf_class_excl", "" );
+	level.gunfightClassSelect = GetDvarString( "scr_gf_class_select", "random" );
 	level.gunfightExtraMvmt = GetDvarInt( "scr_gf_extra_movement", 0 );
 	level.gunfightRespawn = GetDvarInt( "scr_gf_respawn", 0 );
 	level.gunfightSingleWeapon = GetDvarInt( "scr_gf_single_weapon", 0 );
@@ -301,7 +302,7 @@ function giveCustomLoadout()
 	secondary = ( isdefined( weaponClass["secondaryAttachments"] ) ? GetWeapon( weaponClass["secondary"], weaponClass["secondaryAttachments"] ) : GetWeapon( weaponClass["secondary"] ) );
 
 	// get equipment
-	// TODO: implement them in a timer(?)
+	//TODO: implement them in a timer(?)
 	lethal = GetWeapon( weaponClass["lethal"] );
 	tactical = GetWeapon( weaponClass["tactical"] );
 
@@ -366,7 +367,7 @@ function gunfightUpdateDvars()
 
 function gunfightPickClass()
 {
-	// TODO: possibly add specific playlist-style only tiers? i.e. shotguns classes only
+	//TODO: possibly add specific playlist-style only tiers? i.e. shotguns classes only
 	classRef = [];
 	if ( !level.gunfightSingleWeapon )
 	{
@@ -457,7 +458,7 @@ function gunfightInfoUpdate()
 	foreach ( flagObj in level.domFlags )
 	{
 		// delete all flags that isn't the B flag
-		// TODO: maybe just disable them instead? Could be used for
+		//TODO: maybe just disable them instead? Could be used for
 		// custom gamemodes I guess
 		if ( flagObj.label != "_b" )
 		{
@@ -495,7 +496,7 @@ function gunfightFlagDisplay()
 	self.visuals[0] clientfield::set( "model_dr", 1 );
 
 	// wait some seconds to then hide the flag
-	wait( (level.prematchPeriod - level.prematchPeriod/3) );
+	wait( Int(level.prematchPeriod - level.prematchPeriod/3) );
 
 	self gameobjects::disable_object();
 	self gameobjects::set_model_visibility( false );
@@ -512,7 +513,7 @@ function gunfightHUDToggle()
 		level.gfHideHUD = true;
 
 	// wait some seconds to then hide the flag
-	wait( (level.prematchPeriod - level.prematchPeriod/3) );
+	wait( Int(level.prematchPeriod - level.prematchPeriod/3) );
 
 	level.gfHideHUD = false;
 
@@ -622,7 +623,7 @@ function giveLastAttackerWarning( team )
 
 function onPlayerDamage( eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, psOffsetTime )
 {
-	//IPrintLnBold( "Damage from: " + sWeapon.rootWeapon.name + " is: ^1" + iDamage );
+	//IPrintLnBold( sprintf( "Damage from: {0} is ^1{1}", sWeapon.rootWeapon.name, iDamage ) );
 	//IPrintLn( sprintf( "{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}", eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon.rootWeapon.name, vPoint, vDir, sHitLoc, psOffsetTime ) );
 	thread updateGFHud();
 
@@ -654,9 +655,11 @@ function onRoundSwitch()
 
 	level.halftimeType = "halftime";
 	game["switchedsides"] = !game["switchedsides"];
+	
 	// don't reset if SW
 	if ( level.gunfightSingleWeapon )
 		return;
+	
 	// reset the class dvar
 	SetDvar( "scr_gf_class_idx", -1 );
 	// add this class to excluded classes
@@ -788,7 +791,7 @@ function onTagUse( player )
 	WAIT_SERVER_FRAME;
 
 	// apply the damage
-	// TODO: figure out the issue where HUD doesn't update as well it takes the damage
+	//TODO: figure out the issue where HUD doesn't update as well it takes the damage
 	// but the HUD/pain fx doesn't occur
 	//self.targetPlayer [[level.callbackPlayerDamage]]( self.targetPlayer, self.targetPlayer, (100 - maxHealth), 0, "MOD_RIFLE_BULLET", GetWeapon("ar_standard"), (0,0,0), (0,0,0), "torso_upper", (0,0,0), 0, 0, undefined );
 
