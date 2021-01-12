@@ -1,31 +1,33 @@
 {
- "Name" : "mp_mod",
- "GameMode" : "mpl",
- "IsCommon" : false,
- "Parent" : "",
- "Overlay" : "",
- "IsStandalone" : true,
- "IsProduction" : false,
- "IsShipped" : false,
- "DontDeploy" : false,
- "NoStreamBank" : false,
- "MapFile" : "",
- "Standalone" : true,
- "Builds" : [ "T7" ],
- "Sources" : [
- {
- "Type" : "ALIAS",
- "Name" : "gunfight_aliases",
- "Filename" : "gunfight_aliases.csv",
- "Specs" : [ ] 
-},
-{
- "Type" : "AMBIENT",
- "Name" : "ambient_mod",
- "Filename" : "ambient_mod.csv",
- "Specs" : [
-  "mpl_mod"
+  "Name": "mp_mod",
+  "GameMode": "mpl",
+  "IsCommon": false,
+  "Parent": "",
+  "Overlay": "",
+  "IsStandalone": true,
+  "IsProduction": false,
+  "IsShipped": false,
+  "DontDeploy": false,
+  "NoStreamBank": false,
+  "MapFile": "",
+  "Standalone": true,
+  "Builds": [
+    "T7"
+  ],
+  "Sources": [
+    {
+      "Type": "ALIAS",
+      "Name": "gunfight_aliases",
+      "Filename": "gunfight_aliases.csv",
+      "Specs": []
+    },
+    {
+      "Type": "AMBIENT",
+      "Name": "ambient_mod",
+      "Filename": "ambient_mod.csv",
+      "Specs": [
+        "mpl_mod"
+      ]
+    }
   ]
-},
-]
 }

@@ -808,17 +808,7 @@ function onTagUse( player )
 
 function onCBStartGametype()
 {
-	// act like a CUAV is there in order to disable the minimap
-	// have to wait until it exists
-	while ( !isdefined( level.activeCounterUAVs ) )
-		WAIT_SERVER_FRAME;
-
-	// increment CUAV for both teams
-	level.activeCounterUAVs["allies"]++;
-	level.activeCounterUAVs["axis"]++;
-
-	// notify that CUAV is in
-	level notify( "counter_uav_updated" );
+	level thread activateCUAV();
 
 	// disable graceperiod
 	level.gracePeriod = 0;
@@ -840,6 +830,21 @@ function onCBStartGametype()
 		if ( globallogic::checkForForfeit() )
 			return;
 	}
+}
+
+function activateCUAV()
+{
+	// act like a CUAV is there in order to disable the minimap
+	// have to wait until it exists
+	while ( !isdefined( level.activeCounterUAVs ) )
+		WAIT_SERVER_FRAME;
+
+	// increment CUAV for both teams
+	level.activeCounterUAVs["allies"]++;
+	level.activeCounterUAVs["axis"]++;
+
+	// notify that CUAV is in
+	level notify( "counter_uav_updated" );
 }
 
 function loadPlayer()
