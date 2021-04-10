@@ -3,8 +3,22 @@
 *.log
 *.xpak
 
-english/sound
+# ignore stuff that shouldn't be out
 sound/zone/
 zone/snd/
 zone_source/*/
 zone/workshop.json
+
+# remove compiled localized stuff
+english/*
+englisharabic/*
+french/*
+german/*
+italian/*
+japanese/*
+polish/*
+portuguese/*
+russian/*
+simplifiedchinese/*
+spanish/*
+traditionalchinese/*
