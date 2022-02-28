@@ -416,7 +416,7 @@ function gunfightGenerateClasses( tblReference )
 		if ( itemRow > -1 )
 		{
 			reference = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_REFERENCE );
-			// strtok reference for more options?
+
 			if ( tblReference == reference )
 			{
 				primary = TableLookupColumnForRow( WEAPON_TABLE, itemRow, WT_COL_PRIMARY );
